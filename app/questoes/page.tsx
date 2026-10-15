@@ -65,12 +65,12 @@ function QuestoesContent() {
     }
   }, [activeContestId]);
 
-  const activeDisciplines = new Set(topics.filter(t => t.activeInCurrentEdital !== false).map(t => t.discipline));
+  const activeDisciplineSet = new Set(topics.filter(t => t.activeInCurrentEdital !== false).map(t => t.discipline));
   const filtered = useMemo(
     () =>
       questions.filter(
         q =>
-          (topics.length === 0 || activeDisciplines.has(q.discipline)) &&
+          (topics.length === 0 || activeDisciplineSet.has(q.discipline)) &&
           (!discipline || q.discipline === discipline) &&
           (!topicId ||
             q.topicId === topicId ||
@@ -107,6 +107,7 @@ function QuestoesContent() {
   const activeDisciplines = Array.from(
     new Set(
       topics
+        .filter(t => t.activeInCurrentEdital !== false)
         .map(t => t.discipline)
         .filter(Boolean)
     )
