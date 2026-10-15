@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+.env
+.env.local
+.DS_Store
+*.tsbuildinfo
+*.pdf
+materiais/
+dados-locais/
+imports/
+*_QUESTOES_VALIDADO*.csv
+*_CONTEUDO_VALIDADO*.csv
+*_ESTRUTURA_MAPA_MESTRE*.csv
+*_IMPORTACAO_EDITAL.csv

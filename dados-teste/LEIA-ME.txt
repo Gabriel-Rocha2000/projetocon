@@ -1,0 +1,4 @@
+Esta pasta não contém materiais reais nem questões de cursos.
+
+Para testes locais, copie seus CSVs validados para uma pasta fora do repositório ou use "dados-locais/" (ignorada pelo Git).
+Isso evita publicar acidentalmente materiais de estudo, questões ou dados pessoais no GitHub.

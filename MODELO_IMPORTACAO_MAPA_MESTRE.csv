@@ -1,0 +1,4 @@
+id,disciplina,titulo,texto_original,nivel,parent_id,conteudo_id,ordem,tags
+DISC-001,Nome da Disciplina,Tópico principal,Texto original ou descrição do tópico,topic,,DISC.TOPICO,1,tag1;tag2
+DISC-001.01,Nome da Disciplina,Subtópico 1,Texto original ou descrição do subtópico,subtopic,DISC-001,DISC.TOPICO.SUBTOPICO1,2,tag1;subtema
+DISC-001.02,Nome da Disciplina,Subtópico 2,Texto original ou descrição do subtópico,subtopic,DISC-001,DISC.TOPICO.SUBTOPICO2,3,tag2;subtema

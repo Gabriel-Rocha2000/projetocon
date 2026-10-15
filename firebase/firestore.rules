@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function own(uid) { return signedIn() && request.auth.uid == uid; }
+
+    match /users/{uid} {
+      allow read, write: if own(uid);
+      match /{document=**} { allow read, write: if own(uid); }
+    }
+
+    // MVP privado. Antes de abrir para outros usuários,
+    // restrinja escrita global a administradores.
+    match /contests/{id} { allow read, write: if signedIn(); }
+    match /topics/{id} { allow read, write: if signedIn(); }
+    match /materials/{id} { allow read, write: if signedIn(); }
+    match /laws/{id} { allow read, write: if signedIn(); }
+    match /law_documents/{id} { allow read, write: if signedIn(); }
+    match /questions/{id} { allow read, write: if signedIn(); }
+    match /content_nodes/{id} { allow read, write: if signedIn(); }
+    match /contest_versions/{id} { allow read, write: if signedIn(); }
+    match /edital_items/{id} { allow read, write: if signedIn(); }
+    match /content_blocks/{id} { allow read, write: if signedIn(); }
+  }
+}

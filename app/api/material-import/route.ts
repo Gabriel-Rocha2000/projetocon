@@ -1,0 +1,59 @@
+import { NextResponse } from "next/server";
+import pdf from "pdf-parse";
+import { createHash } from "crypto";
+
+export const runtime = "nodejs";
+
+function clean(text: string) {
+  return text.replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function splitIntoBlocks(raw: string) {
+  const text = clean(raw);
+  const paragraphs = text.split(/\n\s*\n|(?=\n(?:\d+(?:\.\d+)*\s+)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇ\s\-–—:]{5,}\n)/g).map(clean).filter(x => x.length > 20);
+  const blocks: Array<{ title: string; text: string; order: number; estimatedMinutes: number }> = [];
+  let buffer = "";
+  let title = "Bloco inicial";
+
+  const flush = () => {
+    const body = clean(buffer);
+    if (body.length < 40) { buffer = ""; return; }
+    const words = body.split(/\s+/).length;
+    blocks.push({ title, text: body, order: blocks.length + 1, estimatedMinutes: Math.max(3, Math.min(12, Math.ceil(words / 170))) });
+    buffer = "";
+  };
+
+  for (const paragraph of paragraphs) {
+    const firstLine = paragraph.split("\n")[0].trim();
+    const headingLike = firstLine.length <= 100 && (firstLine === firstLine.toUpperCase() || /^\d+(?:\.\d+)*\s+/.test(firstLine));
+    if (headingLike && buffer.length > 250) {
+      flush();
+      title = firstLine.replace(/^\d+(?:\.\d+)*\s+/, "").slice(0, 90) || `Bloco ${blocks.length + 1}`;
+      buffer = paragraph;
+      continue;
+    }
+    if (buffer.length + paragraph.length > 1500) flush();
+    if (!buffer && headingLike) title = firstLine.replace(/^\d+(?:\.\d+)*\s+/, "").slice(0, 90) || `Bloco ${blocks.length + 1}`;
+    buffer += `${buffer ? "\n\n" : ""}${paragraph}`;
+  }
+  flush();
+  return blocks;
+}
+
+export async function POST(request: Request) {
+  try {
+    const form = await request.formData();
+    const file = form.get("file");
+    if (!(file instanceof File)) return NextResponse.json({ error: "Envie um PDF." }, { status: 400 });
+    if (!file.name.toLowerCase().endsWith(".pdf")) return NextResponse.json({ error: "O arquivo precisa ser PDF." }, { status: 400 });
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const parsed = await pdf(bytes);
+    const fileHash = createHash("sha256").update(bytes).digest("hex");
+    const allBlocks = splitIntoBlocks(parsed.text || "");
+    const truncated = allBlocks.length > 250;
+    const blocks = allBlocks.slice(0, 250);
+    return NextResponse.json({ fileName: file.name, fileHash, pages: parsed.numpages || null, blockCount: blocks.length, blocks, warning: `${truncated ? `ATENÇÃO: ${allBlocks.length - 250} blocos excedentes não foram incluídos nesta prévia experimental. Use CSV validado para uma importação completa. ` : ""}A divisão é automática e deve ser conferida antes de salvar. O texto original não é reescrito.` });
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Não foi possível processar o material." }, { status: 500 });
+  }
+}

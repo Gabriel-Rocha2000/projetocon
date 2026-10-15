@@ -1,0 +1,22 @@
+name: Verificar codigo Projeto Fazenda
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Verificar proteções de dados e arquitetura
+        run: npm run audit:safe
+      - name: Verificar TypeScript
+        run: npm run typecheck

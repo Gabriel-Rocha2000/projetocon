@@ -1,0 +1,19 @@
+Arquivos alterados ou novos em relação ao ZIP v1.4.6 utilizado como base:
+.env.example
+.github/workflows/verificar-codigo.yml
+CHANGELOG.md
+GUIA_DEPLOY_V1.4.7.md
+README.md
+RELATORIO_AUDITORIA_V1.4.7.md
+VERSION
+app/api/material-import/route.ts
+app/api/question-import/route.ts
+app/conteudo/[id]/page.tsx
+app/conteudo/page.tsx
+app/questoes/page.tsx
+components/Sidebar.tsx
+contexts/ContestContext.tsx
+package-lock.json
+package.json
+scripts/audit-safe.mjs
+services/firestore.ts
