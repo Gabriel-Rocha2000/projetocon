@@ -351,7 +351,7 @@ export default function MapaMestrePage() {
       {independentlyRemoved.map(t => <div className="mapRemovedRow" key={t.id}><span><strong>{t.title}</strong><small> • {t.discipline} • {t.level === "subtopic" ? "subtópico" : "tópico"}</small></span><button type="button" className="treeAction" disabled={manageBusy} onClick={() => restoreRemoved(t.discipline, t.id)}>Restaurar</button></div>)}
     </section>}
 
-    <HierarchyIndex nodes={mapHierarchy} onAction={mapIndexAction} onManageAction={openManage} actionLabel="Estudar" emptyLabel="Nenhum item encontrado no Mapa-Mestre." />
+    <HierarchyIndex nodes={mapHierarchy} scopeKey={activeContestId} onAction={mapIndexAction} onManageAction={openManage} actionLabel="Estudar" emptyLabel="Nenhum item encontrado no Mapa-Mestre." />
 
     {manageNode && manageMode && <div className="mapManageOverlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) closeManage(); }}>
       <section role="dialog" aria-modal="true" aria-labelledby="map-manage-title" className="mapManageDialog">

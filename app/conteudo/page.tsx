@@ -248,7 +248,11 @@ export default function ConteudoPage() {
             Object.entries(row).map(([key, value]) => [key.replace(/^\uFEFF/, "").trim().toLowerCase(), value])
           ));
           if (!rows.length) { setMessage("O CSV não possui linhas para importar."); return; }
-          const parserErrors = result.errors?.slice(0, 3) || [];
+          const parserErrors = result.errors || [];
+          if (parserErrors.some(error => ["Quotes", "FieldMismatch"].includes(error.type))) {
+            setMessage(`Importação cancelada: ${parserErrors.length} erro(s) de leitura do CSV. Verifique aspas e quebras de linha; nenhum dado foi gravado.`);
+            return;
+          }
           const defaultMaterialId = `CSV_${slug(file.name.replace(/\.csv$/i, ""))}`;
           const blocks: ContentBlock[] = [];
           const materialMap = new Map<string, Material>();
@@ -316,13 +320,23 @@ export default function ConteudoPage() {
             setMessage(`Importação cancelada: IDs de microblocos duplicados no CSV (${Array.from(new Set(duplicateIds)).slice(0, 4).join(", ")}). Nenhum dado foi alterado.`);
             return;
           }
+          // O CSV deve conter teoria completa; não resumimos nem reescrevemos os textos.
+          // Alertamos sobre microblocos potencialmente sem contexto, mantendo os IDs e vínculos.
+          const shortBlocks = blocks.filter(block => block.text.trim().split(/\s+/).length < 45);
+          const fragmentBlocks = blocks.filter(block => /^={2,}\S+={2,}$/.test(block.text.trim()) || block.text.trim().length < 25);
+          if (shortBlocks.length || fragmentBlocks.length || skipped.length) {
+            const diagnostic = `${shortBlocks.length} trecho(s) com menos de 45 palavras, ${fragmentBlocks.length} possível(is) fragmento(s) e ${skipped.length} linha(s) sem vínculo.`;
+            if (!window.confirm(`Revisão de integridade do conteúdo\n\n${diagnostic}\n\nConfira os trechos curtos e as linhas sem vínculo: a importação NÃO expande, resume ou recupera texto ausente.\n\nContinuar gravando apenas as ${blocks.length} linhas válidas?`)) {
+              setMessage(`Importação cancelada para revisão. ${diagnostic} Nenhum dado foi alterado.`);
+              return;
+            }
+          }
           // Atualiza registros pelo mesmo ID, sem apagar os blocos ausentes deste CSV.
-          // A exclusão anterior podia orfanar progresso e cobrava leituras/exclusões adicionais.
           for (const material of materialMap.values()) await saveMaterial(material);
           await saveContentBlocks(blocks);
           const parserNote = parserErrors.length ? ` O parser também sinalizou ${parserErrors.length} aviso(s).` : "";
           const skippedNote = skipped.length ? ` ${skipped.length} linha(s) ficaram de fora: ${skipped.slice(0, 3).join(" | ")}${skipped.length > 3 ? "…" : ""}` : "";
-          setMessage(`${blocks.length} microbloco(s) importados via CSV validado em ${materialMap.size} material(is).${skippedNote}${parserNote}`);
+          setMessage(`${blocks.length} microbloco(s) importados com o texto integral do CSV, sem resumir. ${shortBlocks.length} bloco(s) curtos exigem revisão de contexto. ${materialMap.size} material(is).${skippedNote}${parserNote}`);
           await load();
         } catch (error) {
           setMessage(error instanceof Error ? `Falha ao importar CSV: ${error.message}` : "Falha ao importar CSV de conteúdo.");
@@ -434,6 +448,6 @@ export default function ConteudoPage() {
 
     {managedMaterial && <section className="panel materialManager"><div className="panelHeader"><div><span className="eyebrow">EDITAR IMPORTAÇÃO — {managedMaterial.type === "pdf" ? "PDF" : "CSV / TEXTO"}</span><h2>{managedMaterial.title}</h2><p className="muted">Edite título, texto e vínculo de cada microbloco. Os IDs não mudam e seu progresso é preservado.</p></div><button className="textButton" onClick={()=>{setManagedMaterial(null);setManagedBlocks([]);}}>Fechar</button></div><div className="classificationHeader"><label>Disciplina do material<select value={managedDiscipline} onChange={e=>reclassifyManagedMaterial(e.target.value)}><option value="">Selecione</option>{catalogDisciplines.map(d=><option key={d}>{d}</option>)}</select></label><div className="quickActions"><button className="actionButton secondaryAction" onClick={()=>reclassifyManagedMaterial(managedDiscipline)} disabled={!managedDiscipline||savingManagement}>Reclassificar</button><button className="actionButton" onClick={saveManagedMaterial} disabled={!managedDiscipline||savingManagement}>{savingManagement?"Salvando...":"Salvar alterações"}</button><button className="dangerButton" onClick={removeManagedMaterial} disabled={savingManagement}>Excluir importação inteira</button></div></div><div className="materialManagerNote">{managedBlocks.length} microbloco(s), {managedBlocks.filter(b=>b.archived).length} arquivado(s). Para um bloco com questões ou estudo, use “Arquivar” em vez de excluir. Para salvar textos e títulos editados, clique em “Salvar alterações”.</div><div className="managementFilters"><input aria-label="Buscar microbloco" placeholder="Buscar microbloco por título, ID ou texto..." value={blockSearch} onChange={e=>{setBlockSearch(e.target.value);setBlockLimit(40);}}/><span className="muted">{filteredManagedBlocks.length} encontrado(s) • exibindo até {Math.min(blockLimit,filteredManagedBlocks.length)}</span></div><div className="materialBlockPreview managedBlockList">{filteredManagedBlocks.slice(0,blockLimit).map((block,index)=><div className="managedBlockEditor" key={block.id}><div className="managedBlockEditorHeader"><strong>Bloco {index+1} • {block.id}</strong>{block.archived&&<span className="statusPill">Arquivado</span>}</div><label>Título<input value={block.title} onChange={e=>updateManagedBlock(block.id,{title:e.target.value})}/></label><label>Texto de estudo<textarea rows={5} value={block.text} onChange={e=>updateManagedBlock(block.id,{text:e.target.value})}/></label><div className="managementFilters"><label>Tópico / subtópico<select value={block.topicId||""} onChange={e=>updateManagedBlock(block.id,{topicId:e.target.value||null})}><option value="">Sem vínculo</option>{allTopics.filter(t=>t.discipline===managedDiscipline).map(t=><option key={t.id} value={t.id}>{t.title}</option>)}</select></label><label>Ordem<input type="number" min={1} value={block.order} onChange={e=>updateManagedBlock(block.id,{order:Math.max(1,Number(e.target.value)||1)})}/></label></div><div className="quickActions"><button className="actionButton secondaryAction" disabled={savingManagement} onClick={()=>updateManagedBlock(block.id,{archived:!block.archived})}>{block.archived?"Restaurar bloco":"Arquivar bloco"}</button><button className="dangerButton" disabled={savingManagement} onClick={()=>deleteManagedBlock(block)}>Excluir bloco</button></div></div>)}{filteredManagedBlocks.length>blockLimit && <button className="actionButton secondaryAction" onClick={()=>setBlockLimit(n=>n+40)}>Carregar mais 40 blocos</button>}</div></section>}
 
-    <HierarchyIndex nodes={hierarchy} onAction={indexAction} actionLabel="Abrir" emptyLabel="Nenhum conteúdo encontrado neste índice." />
+    <HierarchyIndex nodes={hierarchy} scopeKey={`${activeContestId}:${scope}`} onAction={indexAction} actionLabel="Abrir" emptyLabel="Nenhum conteúdo encontrado neste índice." />
   </AppShell>;
 }

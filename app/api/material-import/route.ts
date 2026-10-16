@@ -26,13 +26,15 @@ function splitIntoBlocks(raw: string) {
   for (const paragraph of paragraphs) {
     const firstLine = paragraph.split("\n")[0].trim();
     const headingLike = firstLine.length <= 100 && (firstLine === firstLine.toUpperCase() || /^\d+(?:\.\d+)*\s+/.test(firstLine));
-    if (headingLike && buffer.length > 250) {
+    if (headingLike && buffer.length > 950) {
       flush();
       title = firstLine.replace(/^\d+(?:\.\d+)*\s+/, "").slice(0, 90) || `Bloco ${blocks.length + 1}`;
       buffer = paragraph;
       continue;
     }
-    if (buffer.length + paragraph.length > 1500) flush();
+    // Preserve explanations with definitions, examples and exceptions; only split at paragraph
+    // boundaries and avoid producing isolated fragments from a single concept.
+    if (buffer.length >= 1800 && buffer.length + paragraph.length > 4500) flush();
     if (!buffer && headingLike) title = firstLine.replace(/^\d+(?:\.\d+)*\s+/, "").slice(0, 90) || `Bloco ${blocks.length + 1}`;
     buffer += `${buffer ? "\n\n" : ""}${paragraph}`;
   }
@@ -52,7 +54,7 @@ export async function POST(request: Request) {
     const allBlocks = splitIntoBlocks(parsed.text || "");
     const truncated = allBlocks.length > 250;
     const blocks = allBlocks.slice(0, 250);
-    return NextResponse.json({ fileName: file.name, fileHash, pages: parsed.numpages || null, blockCount: blocks.length, blocks, warning: `${truncated ? `ATENÇÃO: ${allBlocks.length - 250} blocos excedentes não foram incluídos nesta prévia experimental. Use CSV validado para uma importação completa. ` : ""}A divisão é automática e deve ser conferida antes de salvar. O texto original não é reescrito.` });
+    return NextResponse.json({ fileName: file.name, fileHash, pages: parsed.numpages || null, blockCount: blocks.length, blocks, warning: `${truncated ? `ATENÇÃO: ${allBlocks.length - 250} blocos excedentes não foram incluídos nesta prévia experimental. Use CSV validado para uma importação completa. ` : ""}Os microblocos agora agrupam trechos maiores para preservar contexto; confira cada bloco antes de salvar. O texto original não é resumido nem reescrito.` });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Não foi possível processar o material." }, { status: 500 });
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, ReactNode, useMemo, useState } from "react";
+import { CSSProperties, ReactNode, useEffect, useMemo, useState } from "react";
 
 export type HierarchyIndexNode = {
   id: string;
@@ -19,6 +19,8 @@ type Props = {
   actionLabel?: string;
   initiallyExpanded?: string[];
   onManageAction?: (node: HierarchyIndexNode, action: "edit" | "delete") => void;
+  scopeKey?: string;
+  initialFocusId?: string;
 };
 
 function collectIds(nodes: HierarchyIndexNode[]) {
@@ -31,10 +33,37 @@ function collectIds(nodes: HierarchyIndexNode[]) {
   return ids;
 }
 
-export default function HierarchyIndex({ nodes, emptyLabel = "Nenhum item encontrado.", onAction, actionLabel = "Abrir", initiallyExpanded = [], onManageAction }: Props) {
+export default function HierarchyIndex({ nodes, emptyLabel = "Nenhum item encontrado.", onAction, actionLabel = "Abrir", initiallyExpanded = [], onManageAction, scopeKey, initialFocusId }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(initiallyExpanded));
   const [openActionsId, setOpenActionsId] = useState<string | null>(null);
   const expandableIds = useMemo(() => collectIds(nodes), [nodes]);
+  const [focusedId, setFocusedId] = useState<string | null>(initialFocusId || null);
+  useEffect(() => {
+    setFocusedId(initialFocusId || null);
+    setExpanded(new Set(initiallyExpanded));
+    setOpenActionsId(null);
+  }, [scopeKey, initialFocusId]);
+
+  const focusPath = useMemo(() => {
+    if (!focusedId) return [];
+    const findPath = (rows: HierarchyIndexNode[], path: HierarchyIndexNode[] = []): HierarchyIndexNode[] => {
+      for (const row of rows) {
+        const next = [...path, row];
+        if (row.id === focusedId) return next;
+        const found = findPath(row.children || [], next);
+        if (found.length) return found;
+      }
+      return [];
+    };
+    return findPath(nodes);
+  }, [nodes, focusedId]);
+  const visibleNodes = focusPath.length ? [focusPath[focusPath.length - 1]] : nodes;
+
+  function focus(node: HierarchyIndexNode) {
+    setFocusedId(node.id);
+    setExpanded(current => new Set([...current, node.id]));
+    setOpenActionsId(null);
+  }
 
   function toggle(id: string) {
     setExpanded(current => {
@@ -53,7 +82,7 @@ export default function HierarchyIndex({ nodes, emptyLabel = "Nenhum item encont
           <button className={`treeToggle ${hasChildren ? "hasChildren" : "leaf"}`} onClick={() => hasChildren && toggle(node.id)} aria-label={hasChildren ? (isOpen ? "Recolher" : "Expandir") : "Item"}>
             {hasChildren ? (isOpen ? "▾" : "▸") : "•"}
           </button>
-          <button className="treeMain" onClick={() => hasChildren ? toggle(node.id) : onAction?.(node)}>
+          <button type="button" className="treeMain" title={`Mostrar apenas ${node.label}`} onClick={() => focus(node)}>
             <span className="treeLabel">{node.label}</span>
             {node.meta && <span className="treeMeta">{node.meta}</span>}
           </button>
@@ -75,10 +104,18 @@ export default function HierarchyIndex({ nodes, emptyLabel = "Nenhum item encont
   if (!nodes.length) return <div className="panel emptyState">{emptyLabel}</div>;
 
   return <section className="panel hierarchyPanel">
+    {focusedId && focusPath.length > 0 && <div className="hierarchyFocusBanner" role="status">
+      <div className="hierarchyFocusText"><strong>Foco no tema:</strong> {focusPath.map(row => row.label).join(" › ")}</div>
+      <div className="hierarchyFocusActions">
+        {focusPath.length > 1 && <button type="button" className="miniButton" onClick={() => setFocusedId(focusPath[focusPath.length - 2].id)}>← Voltar um nível</button>}
+        <button type="button" className="actionButton secondaryAction" onClick={() => { setFocusedId(null); setExpanded(new Set()); }}>✕ Mostrar todos</button>
+      </div>
+    </div>}
     <div className="hierarchyToolbar">
+      {!focusedId && <span className="muted">Clique no nome para isolar um tema; use a seta para abrir os subtópicos.</span>}
       <button className="textButton" onClick={() => setExpanded(new Set(expandableIds))}>Expandir tudo</button>
       <button className="textButton" onClick={() => setExpanded(new Set())}>Recolher tudo</button>
     </div>
-    <div className="hierarchyTree">{render(nodes)}</div>
+    <div className="hierarchyTree">{render(visibleNodes)}</div>
   </section>;
 }

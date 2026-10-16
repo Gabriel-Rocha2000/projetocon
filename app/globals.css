@@ -130,3 +130,22 @@ button:hover,.actionButton:hover,.quickCard:hover,.questionListItem:hover{transf
 .hierarchyPanel:has(.treeManage){overflow:visible}
 .hierarchyRow:has(.treeManage){grid-template-columns:30px minmax(0,1fr) auto auto auto}
 @media(max-width:720px){.hierarchyRow:has(.treeManage){grid-template-columns:28px minmax(0,1fr) auto auto}}
+
+/* v1.5.0 — foco reversível no índice e simulados com seleção múltipla */
+.hierarchyFocusBanner { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 16px; border-bottom:1px solid var(--border, #dce2ed); background:var(--surface-soft, #f7f9fd); flex-wrap:wrap; }
+.hierarchyFocusText { min-width:180px; flex:1; font-size:.88rem; overflow-wrap:anywhere; }
+.hierarchyFocusActions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.hierarchyToolbar > .muted { margin-right:auto; font-size:.78rem; }
+.treeMain { cursor:zoom-in; }
+.multiFilterFieldset { min-width:0; border:1px solid #d5ddeb; border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:9px; grid-column:span 2; }
+.multiFilterFieldset legend { font-weight:700; font-size:.85rem; padding:0 5px; }
+.multiFilterUtilities { display:flex; justify-content:space-between; gap:10px; align-items:center; font-size:.79rem; }
+.multiFilterOptions { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); max-height:205px; overflow-y:auto; gap:5px; padding:4px; }
+.multiFilterOption { display:flex; align-items:flex-start; gap:8px; padding:8px; background:#f7f9fd; border:1px solid #e4e9f1; border-radius:8px; cursor:pointer; font-weight:500; }
+.multiFilterOption input { margin-top:3px; flex-shrink:0; }
+.multiFilterOption span { min-width:0; font-size:.8rem; }
+.multiFilterOption small { display:block; color:#63718c; font-weight:400; font-size:.7rem; }
+.simulationShortcut { display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify-content:space-between; padding:14px 16px; margin-bottom:14px; }
+.simulationShortcut p { margin:5px 0 0; max-width:670px; font-size:.84rem; }
+.focusSelectionSummary { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; padding:10px 14px; border-radius:9px; border:1px solid #c8d7f2; background:#eef4ff; margin:0 0 14px; font-size:.82rem; }
+@media (max-width: 760px) { .multiFilterFieldset { grid-column:span 1; } .multiFilterOptions { grid-template-columns:1fr; } .hierarchyFocusBanner { align-items:flex-start; } }

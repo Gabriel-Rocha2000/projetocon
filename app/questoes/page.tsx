@@ -10,7 +10,7 @@ import { getAllTopics, getQuestions, getTopics, importQuestions } from "@/servic
 import { classifyTopic, disciplineCandidates } from "@/lib/classification";
 import { Question, Topic } from "@/types";
 
-type SavedFilter = { id: string; label: string; discipline: string; topicId: string; subject: string; theme: string; type: string; board: string; amount: number };
+type SavedFilter = { id: string; label: string; discipline: string; topicId: string; disciplines?: string[]; topicIds?: string[]; subject: string; theme: string; type: string; board: string; amount: number };
 type PdfDraftQuestion = { number: number; statement: string; alternatives: Record<string,string>; correctAnswer: string; questionType: string; rawText: string; topicId?: string; confidence?: number };
 
 function QuestoesContent() {
@@ -20,8 +20,9 @@ function QuestoesContent() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [allTopics, setAllTopics] = useState<Topic[]>([]);
-  const [discipline, setDiscipline] = useState(search.get("discipline") || "");
-  const [topicId, setTopicId] = useState(search.get("topic") || "");
+  const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>(search.getAll("discipline").filter(Boolean));
+  const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>(search.getAll("topic").filter(Boolean));
+  const [topicFilterSearch, setTopicFilterSearch] = useState("");
   const [subject, setSubject] = useState(search.get("subject") || "");
   const [theme, setTheme] = useState(search.get("theme") || "");
   const [type, setType] = useState(search.get("type") || "");
@@ -52,6 +53,8 @@ function QuestoesContent() {
 
   useEffect(() => {
     autoStarted.current = false;
+    setSelectedDisciplines(search.getAll("discipline").filter(Boolean));
+    setSelectedTopicIds(search.getAll("topic").filter(Boolean));
     load();
 
     try {
@@ -65,53 +68,51 @@ function QuestoesContent() {
     }
   }, [activeContestId]);
 
-  const activeDisciplineSet = new Set(topics.filter(t => t.activeInCurrentEdital !== false).map(t => t.discipline));
-  const filtered = useMemo(
-    () =>
-      questions.filter(
-        q =>
-          (topics.length === 0 || activeDisciplineSet.has(q.discipline)) &&
-          (!discipline || q.discipline === discipline) &&
-          (!topicId ||
-            q.topicId === topicId ||
-            q.subtopicId === topicId) &&
-          (!subject || q.subject === subject) &&
-          (!theme || q.subsubject === theme) &&
-          (!type || q.questionType === type) &&
-          (!board || q.board === board) &&
-          (!legalRef ||
-            q.legalRefs?.includes(legalRef) ||
-            q.lawIds?.includes(legalRef))
-      ),
-    [
-      questions,
-      topics,
-      discipline,
-      topicId,
-      subject,
-      theme,
-      type,
-      board,
-      legalRef,
-    ]
-  );
+  const activeTopics = topics.filter(t => t.activeInCurrentEdital !== false);
+  const activeDisciplineSet = new Set(activeTopics.map(t => t.discipline));
+  const activeDisciplines = Array.from(activeDisciplineSet).sort((a,b) => a.localeCompare(b, "pt-BR"));
+  const eligibleTopics = activeTopics.filter(t => selectedDisciplines.length === 0 || selectedDisciplines.includes(t.discipline));
+  const searchableTopics = eligibleTopics
+    .filter(t => !topicFilterSearch.trim() || `${t.discipline} ${t.title}`.toLowerCase().includes(topicFilterSearch.trim().toLowerCase()))
+    .slice(0, 100);
+  const topicSelectionSet = useMemo(() => {
+    if (!selectedTopicIds.length) return null;
+    const descendants = new Set(selectedTopicIds);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const topic of activeTopics) {
+        if (topic.parentTopicId && descendants.has(topic.parentTopicId) && !descendants.has(topic.id)) {
+          descendants.add(topic.id);
+          changed = true;
+        }
+      }
+    }
+    return descendants;
+  }, [selectedTopicIds, topics]);
+  const filtered = useMemo(() => questions.filter(q =>
+    (topics.length === 0 || activeDisciplineSet.has(q.discipline)) &&
+    (selectedDisciplines.length === 0 || selectedDisciplines.includes(q.discipline)) &&
+    (!topicSelectionSet || topicSelectionSet.has(q.topicId) || (!!q.subtopicId && topicSelectionSet.has(q.subtopicId))) &&
+    (!subject || q.subject === subject) &&
+    (!theme || q.subsubject === theme) &&
+    (!type || q.questionType === type) &&
+    (!board || q.board === board) &&
+    (!legalRef || q.legalRefs?.includes(legalRef) || q.lawIds?.includes(legalRef))
+  ), [questions, topics, selectedDisciplines, selectedTopicIds, topicSelectionSet, subject, theme, type, board, legalRef]);
 
-  const disciplines = Array.from(
-    new Set(
-      questions
-        .map(q => q.discipline)
-        .filter(Boolean)
-    )
-  ).sort();
-
-  const activeDisciplines = Array.from(
-    new Set(
-      topics
-        .filter(t => t.activeInCurrentEdital !== false)
-        .map(t => t.discipline)
-        .filter(Boolean)
-    )
-  ).sort();
+  function toggleSelectedDiscipline(value: string) {
+    setSelectedDisciplines(current => current.includes(value) ? current.filter(x => x !== value) : [...current, value]);
+  }
+  function toggleSelectedTopic(value: string) {
+    setSelectedTopicIds(current => current.includes(value) ? current.filter(x => x !== value) : [...current, value]);
+  }
+  function clearMultiFilters() {
+    setSelectedDisciplines([]);
+    setSelectedTopicIds([]);
+    setTopicFilterSearch("");
+    setSubject(""); setTheme(""); setType(""); setBoard("");
+  }
 
   const boards = Array.from(
     new Set(
@@ -122,19 +123,16 @@ function QuestoesContent() {
   ).sort();
 
   function currentFilter(): SavedFilter {
+    const disciplinesLabel = selectedDisciplines.length ? selectedDisciplines.join(", ") : "Todas as disciplinas";
+    const topicsLabel = selectedTopicIds.length ? `${selectedTopicIds.length} tema(s)` : "Todos os temas";
     return {
       id: `${Date.now()}`,
-      label:
-        [discipline, subject || topicId, board]
-          .filter(Boolean)
-          .join(" • ") || "Filtro geral",
-      discipline,
-      topicId,
-      subject,
-      theme,
-      type,
-      board,
-      amount,
+      label: [disciplinesLabel, topicsLabel, board].filter(Boolean).join(" • "),
+      discipline: selectedDisciplines[0] || "",
+      topicId: selectedTopicIds[0] || "",
+      disciplines: [...selectedDisciplines],
+      topicIds: [...selectedTopicIds],
+      subject, theme, type, board, amount,
     };
   }
 
@@ -165,8 +163,8 @@ function QuestoesContent() {
   }
 
   function applyFilter(f: SavedFilter) {
-    setDiscipline(f.discipline || "");
-    setTopicId(f.topicId || "");
+    setSelectedDisciplines(Array.isArray(f.disciplines) ? f.disciplines : (f.discipline ? [f.discipline] : []));
+    setSelectedTopicIds(Array.isArray(f.topicIds) ? f.topicIds : (f.topicId ? [f.topicId] : []));
     setSubject(f.subject || "");
     setTheme(f.theme || "");
     setType(f.type || "");
@@ -178,9 +176,15 @@ function QuestoesContent() {
     rows = filtered,
     override?: Partial<SavedFilter>
   ) {
-    const ids = rows
-      .slice(0, amount || rows.length)
-      .map(q => q.id);
+    const isMixedSimulation = selectedDisciplines.length > 1 || selectedTopicIds.length > 1;
+    const pool = [...rows];
+    if (isMixedSimulation) {
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+    }
+    const ids = pool.slice(0, amount || pool.length).map(q => q.id);
 
     if (!ids.length) return;
 
@@ -1057,6 +1061,19 @@ function QuestoesContent() {
         </div>
       )}
 
+      <section className="panel simulationShortcut" aria-label="Montar simulado">
+        <div><strong>Simulado personalizado</strong><p className="muted">Combine várias disciplinas e vários temas. Dentro de cada grupo, vale qualquer item selecionado; disciplinas e temas são combinados entre si.</p></div>
+        <div className="quickActions">
+          <button type="button" className="actionButton secondaryAction" onClick={() => setShowFilters(v => !v)}>{showFilters ? "Fechar seleção" : "Escolher disciplinas e temas"}</button>
+          <button type="button" className="actionButton secondaryAction" onClick={clearMultiFilters}>Limpar filtros</button>
+          <button type="button" className="actionButton" disabled={!filtered.length} onClick={() => startBattery(filtered)}>Gerar simulado ({Math.min(amount || filtered.length, filtered.length)})</button>
+        </div>
+      </section>
+      {(selectedDisciplines.length > 0 || selectedTopicIds.length > 0) && <div className="focusSelectionSummary" role="status">
+        <span><strong>Filtro ativo:</strong> {selectedDisciplines.length ? selectedDisciplines.join(", ") : "todas as disciplinas"} • {selectedTopicIds.length ? `${selectedTopicIds.length} tema(s)` : "todos os temas"} • {filtered.length} questão(ões)</span>
+        <button type="button" className="miniButton" onClick={clearMultiFilters}>✕ Mostrar todas</button>
+      </div>}
+
       {showFilters && (
         <section className="panel questionFiltersPanel open">
           <div className="filterUtilities">
@@ -1090,30 +1107,36 @@ function QuestoesContent() {
           </div>
 
           <div className="filterGridQuestions">
-            <label>
-              Disciplina
+            <fieldset className="multiFilterFieldset">
+              <legend>Disciplinas para o simulado</legend>
+              <div className="multiFilterUtilities">
+                <span>{selectedDisciplines.length ? `${selectedDisciplines.length} selecionada(s)` : "Todas (sem restrição)"}</span>
+                <button type="button" className="textButton" onClick={() => setSelectedDisciplines([])}>Limpar disciplinas</button>
+              </div>
+              <div className="multiFilterOptions" role="group" aria-label="Selecionar várias disciplinas">
+                {activeDisciplines.map(name => <label className="multiFilterOption" key={name}>
+                  <input type="checkbox" checked={selectedDisciplines.includes(name)} onChange={() => toggleSelectedDiscipline(name)} />
+                  <span>{name}</span>
+                </label>)}
+              </div>
+            </fieldset>
 
-              <select
-                value={discipline}
-                onChange={e =>
-                  setDiscipline(
-                    e.target.value
-                  )
-                }
-              >
-                <option value="">
-                  Todas
-                </option>
-
-                {disciplines.map(
-                  x => (
-                    <option key={x}>
-                      {x}
-                    </option>
-                  )
-                )}
-              </select>
-            </label>
+            <fieldset className="multiFilterFieldset">
+              <legend>Temas e subtópicos (marque vários)</legend>
+              <div className="multiFilterUtilities">
+                <span>{selectedTopicIds.length ? `${selectedTopicIds.length} selecionado(s)` : "Todos os temas das disciplinas escolhidas"}</span>
+                <button type="button" className="textButton" onClick={() => setSelectedTopicIds([])}>Limpar temas</button>
+              </div>
+              <input type="search" aria-label="Buscar temas para simulado" placeholder="Buscar tema ou subtópico..." value={topicFilterSearch} onChange={e => setTopicFilterSearch(e.target.value)} />
+              <div className="multiFilterOptions" role="group" aria-label="Selecionar vários temas">
+                {searchableTopics.map(t => <label className="multiFilterOption" key={t.id}>
+                  <input type="checkbox" checked={selectedTopicIds.includes(t.id)} onChange={() => toggleSelectedTopic(t.id)} />
+                  <span>{t.title}<small>{t.discipline}</small></span>
+                </label>)}
+                {!searchableTopics.length && <span className="muted">Nenhum tema encontrado.</span>}
+              </div>
+              {eligibleTopics.length > searchableTopics.length && <small className="muted">Exibindo até 100 temas por vez. Use a busca para encontrar outros.</small>}
+            </fieldset>
 
             <label>
               Tipo
@@ -1188,6 +1211,14 @@ function QuestoesContent() {
 
                 <option value={30}>
                   30
+                </option>
+
+                <option value={50}>
+                  50
+                </option>
+
+                <option value={100}>
+                  100
                 </option>
 
                 <option value={9999}>
@@ -1529,6 +1560,8 @@ function QuestoesContent() {
 
       <HierarchyIndex
         nodes={hierarchy}
+        scopeKey={activeContestId}
+        initialFocusId={search.get("topic") ? `topic:${search.get("topic")}` : search.get("discipline") ? `discipline:${search.get("discipline")}` : undefined}
         actionLabel="Resolver"
         onAction={
           startFromIndex
