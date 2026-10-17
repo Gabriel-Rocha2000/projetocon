@@ -101,7 +101,7 @@ export default function DashboardPage() {
     const errorLines = recurring.slice(0, 6).map(error => `- ${error.discipline} / ${error.subject || error.topicId}: ${error.recurrence || 1} erro(s), ${Number(error.correctStreak || 0)}/3 acertos seguidos`);
     const pendingLines = pending.slice(0, 6).map(task => `- ${task.period}: ${task.discipline} / ${task.title} (${task.durationMinutes} min) — ${task.reason}`);
     return [
-      "RELATÓRIO PROJETO FAZENDA — DASHBOARD",
+      "RELATÓRIO CONCURSEIRO CLT — DESEMPENHO",
       `Concurso ativo: ${activeContest?.name || activeContestId}${activeContest?.role ? ` — ${activeContest.role}` : ""}`,
       `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
       "Período: base acumulada do concurso ativo",
@@ -142,7 +142,7 @@ export default function DashboardPage() {
   return <AppShell>
     {dashboardError && <div className="statusBox" role="alert">{dashboardError} Não reimporte arquivos nem crie uma base de teste enquanto houver erro.</div>}
     {dashboardLoading && <div className="statusBox" role="status">Carregando métricas do concurso selecionado...</div>}
-    <div className="pageHeader"><div><h1>Seu dia</h1><p className="muted">{activeContest?.name || activeContestId} • {pending.length} tarefa(s) • {totalPlanned} min restantes</p></div><div className="quickActions"><Link href="/planejador" className="actionButton secondaryAction">Plano completo</Link></div></div>
+    <div className="pageHeader"><div><span className="dashboardGreeting">PAINEL DE ESTUDOS</span><h1>Início</h1><p className="muted">{activeContest?.name || activeContestId} • {pending.length} tarefa(s) • {totalPlanned} min restantes</p></div><div className="quickActions"><Link href="/planejador" className="actionButton secondaryAction">Plano completo</Link></div></div>
 
     <section className="todayHero panel">{nextTask ? <><div><span className="eyebrow">PRÓXIMO BLOCO</span><h2>{nextTask.discipline} — {nextTask.title}</h2><p className="todayMeta">{nextTask.durationMinutes} min{nextTask.questionTarget ? ` • ${nextTask.questionTarget} questões` : ""}</p><p className="muted">Por quê: {nextTask.reason}</p></div><Link href={taskHref(nextTask)} className="actionButton heroAction">Iniciar</Link></> : <div><span className="eyebrow">HOJE</span><h2>Plano concluído</h2><p className="muted">Sem tarefas pendentes. Use o modo rápido se quiser aproveitar alguns minutos extras.</p></div>}</section>
 

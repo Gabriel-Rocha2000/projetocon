@@ -256,7 +256,7 @@ export default function LoginPage() {
         </div>
 
         <h1>
-          Projeto Fazenda
+          Concurseiro CLT
         </h1>
 
         <p className="muted">

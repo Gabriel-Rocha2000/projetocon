@@ -4650,3 +4650,33 @@ export async function getTopicLearningStates(
 
   return states;
 }
+
+/** Edita somente os campos de conteúdo de uma questão. Não altera ID, concurso ou progresso. */
+export async function updateQuestionEditable(questionId: string, contestId: string, patch: {
+  statement: string; correctAnswer: string; alternatives?: Record<string, string>;
+  explanation?: string | null; topicId: string; subtopicId?: string | null;
+  contentBlockId?: string | null;
+}) {
+  const questionRef = doc(db, "questions", questionId);
+  const snap = await getDoc(questionRef);
+  if (!snap.exists() || snap.data().contestId !== contestId) throw new Error("Questão inexistente ou de outro concurso.");
+  if (!patch.statement.trim() || !patch.correctAnswer.trim()) throw new Error("Preencha o enunciado e o gabarito.");
+  if (!patch.topicId) throw new Error("Selecione um tópico existente.");
+  const topicSnap = await getDoc(doc(db, "topics", patch.topicId));
+  if (!topicSnap.exists() || topicSnap.data().contestId !== contestId) throw new Error("O tópico não pertence ao concurso selecionado.");
+  if (patch.subtopicId) {
+    const subSnap = await getDoc(doc(db, "topics", patch.subtopicId));
+    if (!subSnap.exists() || subSnap.data().contestId !== contestId) throw new Error("Subtópico inválido para o concurso.");
+  }
+  await updateDoc(questionRef, removeUndefined({
+    statement: patch.statement.trim(),
+    correctAnswer: patch.correctAnswer.trim().toUpperCase(),
+    alternatives: patch.alternatives,
+    explanation: patch.explanation || null,
+    topicId: patch.topicId,
+    subtopicId: patch.subtopicId || null,
+    contentBlockId: patch.contentBlockId || null,
+    updatedAt: serverTimestamp(),
+  }));
+  clearReadCache("questions:");
+}

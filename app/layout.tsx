@@ -3,7 +3,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ContestProvider } from "@/contexts/ContestContext";
 
 export const metadata = {
-  title: "Projeto Fazenda",
+  title: "Concurseiro CLT",
   description: "Sistema adaptativo de estudos para concursos",
 };
 

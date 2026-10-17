@@ -124,6 +124,7 @@ export interface Question {
   topicId: string;
   subtopicId?: string | null;
   contentBlockId?: string | null;
+  contentBlockIds?: string[];
   subject: string;
   subsubject?: string | null;
   board: string;

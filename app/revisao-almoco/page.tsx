@@ -19,7 +19,7 @@ export default function RevisaoAlmocoPage() {
       return `${index + 1}. ${review.discipline} | tópico ${review.topicId || "não informado"} | ${String(review.reason || "revisão").replaceAll("_", " ")} | recorrência ${recurrence}x | ${status}${review.comment ? ` | anotação: ${review.comment}` : ""}`;
     });
     return [
-      "RELATÓRIO PROJETO FAZENDA — REVISÃO DO ALMOÇO",
+      "RELATÓRIO CONCURSEIRO CLT — REVISÃO",
       `Concurso ativo: ${activeContest?.name || activeContestId}${activeContest?.role ? ` — ${activeContest.role}` : ""}`,
       `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
       `Tempo disponível/meta: ${lunchMinutes} min`,

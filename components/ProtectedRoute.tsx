@@ -12,7 +12,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     if (!loading && !user) router.replace("/login");
   }, [user, loading, router]);
 
-  if (loading) return <div className="loadingScreen">Carregando Projeto Fazenda...</div>;
+  if (loading) return <div className="loadingScreen">Carregando Concurseiro CLT...</div>;
   if (!user) return null;
   return <>{children}</>;
 }
