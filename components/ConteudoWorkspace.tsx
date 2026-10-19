@@ -10,6 +10,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useContest } from "@/contexts/ContestContext";
 import { addTopic, deleteContentBlock, deleteMaterialImport, deleteUnusedDiscipline, getAllTopics, getContentBlockProgress, getContentBlocksByMaterial, getMaterials, getQuestions, getTopics, saveContentBlocks, saveMaterial, renameContestDiscipline, setDisciplineActiveStatus } from "@/services/firestore";
 import { deleteMaterialFile, uploadMaterialFile } from "@/services/storage";
+import { getDownloadURL, ref } from "firebase/storage";
+import { storage } from "@/lib/firebase";
 import { classifyTopic, disciplineCandidates, slug } from "@/lib/classification";
 import { ContentBlock, Material, Question, Topic } from "@/types";
 
@@ -92,15 +94,21 @@ export default function ConteudoPage() {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       setMessage("Escolha um arquivo PDF válido."); return;
     }
+    if (!user) { setMessage("Faça login para importar um PDF."); return; }
+    if (file.size > 30 * 1024 * 1024) { setMessage("PDF acima do limite experimental de 30 MB. Utilize o CSV validado."); return; }
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
-    setMessage("Lendo o PDF, identificando a disciplina e quebrando em microblocos...");
+    const timeout = setTimeout(() => controller.abort(), 90000);
+    setMessage("Enviando PDF para o armazenamento do projeto...");
     setDraftFile(file);
     try {
-      const form = new FormData();
-      form.append("file", file);
+      const uploaded = await uploadMaterialFile(user.uid, file);
+      const url = await getDownloadURL(ref(storage, uploaded.path));
+      setMessage("PDF enviado. Lendo e separando os microblocos...");
       const res = await fetch("/api/material-import", {
-        method: "POST", body: form, signal: controller.signal,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, fileName: file.name }),
+        signal: controller.signal,
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -124,7 +132,7 @@ export default function ConteudoPage() {
     } catch (error: unknown) {
       const timedOut = error instanceof Error && error.name === "AbortError";
       setMessage(timedOut
-        ? "A leitura experimental excedeu 45 segundos e foi cancelada. Para materiais extensos, importe o CSV validado."
+        ? "A leitura experimental excedeu o tempo limite e foi cancelada. Para materiais extensos, importe o CSV validado."
         : `Erro ao processar o PDF: ${error instanceof Error ? error.message : "falha de conexão"}. Tente novamente ou use o CSV validado.`);
     } finally {
       clearTimeout(timeout);
