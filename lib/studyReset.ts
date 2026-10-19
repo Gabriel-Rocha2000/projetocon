@@ -122,7 +122,7 @@ export async function executeStudyReset(
       const portion = rows.slice(start, start + 350);
       const batch = writeBatch(db);
       for (const entry of portion) {
-        batch.delete(doc(db, ...path, entry.id));
+        batch.delete(doc(db, path[0], ...path.slice(1), entry.id));
       }
       await batch.commit();
       completed += portion.length;
