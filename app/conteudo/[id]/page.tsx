@@ -13,6 +13,7 @@ import {
   getContentBlockProgress,
   getContentBlocks,
   getContentBlocksByMaterial,
+  getContentBlocksByTopicIds,
   getContentNode,
   getMaterials,
   getErrors,
@@ -78,13 +79,37 @@ export default function ConteudoDetalhePage() {
         }
         const ownBlocks = blockRows.filter(block => block.topicId === t.id);
         const selectedBlocks = ownBlocks.length ? ownBlocks : blockRows.filter(block => block.contentId === contentId);
-        // A apostila é a unidade de leitura; os blocos continuam individuais para revisões.
+
+        // O tópico principal é o índice do assunto. A teoria pode estar inteiramente
+        // vinculada aos subtópicos: reuni-los antes de decidir que o assunto está vazio.
+        const descendantIds = new Set<string>([t.id]);
+        let addedChild = true;
+        while (addedChild) {
+          addedChild = false;
+          for (const item of topicRows) {
+            if (item.parentTopicId && item.discipline === t.discipline &&
+                descendantIds.has(item.parentTopicId) && !descendantIds.has(item.id)) {
+              descendantIds.add(item.id);
+              addedChild = true;
+            }
+          }
+        }
+        const childIds = [...descendantIds].filter(topicId => topicId !== t.id);
+        const descendants = childIds.length ? await getContentBlocksByTopicIds(childIds) : [];
+        if (!active) return;
+        const candidates = new Map<string, ContentBlock>();
+        for (const block of [...selectedBlocks, ...descendants]) {
+          if (block.archived !== true && block.discipline === t.discipline) candidates.set(block.id, block);
+        }
+        const relatedBlocks = [...candidates.values()];
+
+        // A apostila é a unidade de leitura; cada conceito conserva o ID para revisões.
         const preferredMaterialId = requestedMaterial?.id
-          || selectedBlocks.find(b => b.materialId && b.tags?.includes("importado_csv_validado"))?.materialId
-          || selectedBlocks.find(b => b.materialId)?.materialId;
+          || relatedBlocks.find(b => b.materialId && b.tags?.includes("importado_csv_validado"))?.materialId
+          || relatedBlocks.find(b => b.materialId)?.materialId;
         let readingBlocks = preferredMaterialId
-          ? selectedBlocks.filter(b => b.materialId === preferredMaterialId)
-          : selectedBlocks;
+          ? relatedBlocks.filter(b => b.materialId === preferredMaterialId)
+          : relatedBlocks;
         if (preferredMaterialId) {
           try {
             const materialBlocks = await getContentBlocksByMaterial(preferredMaterialId);
