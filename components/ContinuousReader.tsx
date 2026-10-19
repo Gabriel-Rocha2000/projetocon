@@ -115,7 +115,7 @@ export default function ContinuousReader({ topic, blocks, questions, doneBlocks,
     setPdfUrl("");
     setPdfPage(page);
     try {
-      const all = await getMaterials(contestId);
+      const all = await getMaterials(); // PDFs da biblioteca podem ter sido cadastrados antes do concurso ativo
       setPdfCandidates(all.filter(m => m.type === "pdf" && !!m.storagePath && m.discipline === topic.discipline));
       const selected = all.find(m => m.id === requestedId && !!m.storagePath);
       if (!selected?.storagePath) {
