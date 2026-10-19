@@ -85,20 +85,50 @@ export default function ConteudoPage() {
   }
 
   async function parseMaterial(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]; if (!file) return;
-    setMessage("Lendo o PDF, identificando a disciplina e quebrando em microblocos..."); setDraftFile(file);
-    const form = new FormData(); form.append("file", file);
-    const res = await fetch("/api/material-import", { method: "POST", body: form });
-    const data = await res.json();
-    if (!res.ok) { setMessage(data.error || "Falha ao processar material."); return; }
-    const sourceText = `${file.name}\n${(data.blocks || []).slice(0,12).map((b:any)=>`${b.title} ${b.text.slice(0,700)}`).join("\n")}`;
-    const candidates = disciplineCandidates(sourceText, allTopics);
-    const best = candidates[0];
-    const discipline = best?.discipline || "";
-    setDraftMeta({ ...data, disciplineCandidates: candidates });
-    setDetectedDiscipline(discipline); setDisciplineConfidence(best?.confidence || 0);
-    setDraft(reclassify(data.blocks || [], discipline));
-    setImportOpen(true); setMessage(data.warning || "Confira disciplina e vínculos antes de salvar.");
+    const file = event.target.files?.[0];
+    if (!file) return;
+    // Permite selecionar novamente o mesmo PDF depois de um erro.
+    event.target.value = "";
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setMessage("Escolha um arquivo PDF válido."); return;
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    setMessage("Lendo o PDF, identificando a disciplina e quebrando em microblocos...");
+    setDraftFile(file);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/material-import", {
+        method: "POST", body: form, signal: controller.signal,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setMessage(data?.error || `Falha no processamento do PDF (HTTP ${res.status}). Use o CSV validado.`);
+        return;
+      }
+      if (!Array.isArray(data?.blocks) || !data.blocks.length) {
+        setMessage("O PDF foi lido, mas não foram detectados blocos utilizáveis. Use o CSV validado.");
+        return;
+      }
+      const sourceText = `${file.name}\n${data.blocks.slice(0,12).map((block: any) => `${block.title} ${String(block.text || "").slice(0,700)}`).join("\n")}`;
+      const candidates = disciplineCandidates(sourceText, allTopics);
+      const best = candidates[0];
+      const discipline = best?.discipline || "";
+      setDraftMeta({ ...data, disciplineCandidates: candidates });
+      setDetectedDiscipline(discipline);
+      setDisciplineConfidence(best?.confidence || 0);
+      setDraft(reclassify(data.blocks, discipline));
+      setImportOpen(true);
+      setMessage(data.warning || "Confira disciplina e vínculos antes de salvar.");
+    } catch (error: unknown) {
+      const timedOut = error instanceof Error && error.name === "AbortError";
+      setMessage(timedOut
+        ? "A leitura experimental excedeu 45 segundos e foi cancelada. Para materiais extensos, importe o CSV validado."
+        : `Erro ao processar o PDF: ${error instanceof Error ? error.message : "falha de conexão"}. Tente novamente ou use o CSV validado.`);
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   function changeDiscipline(value: string) {
