@@ -66,6 +66,11 @@ function clearReadCache(...prefixes: string[]) {
   }
 }
 
+/** Esvazia caches de consultas após a reinicialização segura de estudos. */
+export function invalidateStudyReadCache() {
+  readCache.clear();
+}
+
 export const DEFAULT_CONTEST = "ATA_MF_2026";
 export const DEFAULT_SETTINGS: StudySettings = {
   morningMinutes: 30,
