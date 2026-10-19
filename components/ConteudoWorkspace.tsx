@@ -197,7 +197,7 @@ export default function ConteudoPage() {
   async function removeManagedMaterial() {
     if (!managedMaterial || savingManagement) return;
     const linked = questions.filter(q => managedBlocks.some(block => block.id === q.contentBlockId)).length;
-    if (!window.confirm(`Remover a importação “${managedMaterial.title}” e ${managedBlocks.length} microbloco(s)? ${linked ? `ATENÇÃO: ${linked} questão(ões) continuarão existindo, mas perderão o microbloco associado. ` : ""}Tópicos e histórico não serão apagados.`)) return;
+    if (!window.confirm(`Remover a importação “${managedMaterial.title}” e ${managedBlocks.length} microbloco(s)? ${linked ? `ATENÇÃO: existem ${linked} questão(ões) vinculadas; nesse caso, a exclusão será bloqueada para evitar perda de vínculos. ` : ""}Tópicos e histórico não serão apagados.`)) return;
     setSavingManagement(true);
     try {
       // Gravação no Firestore primeiro; só removemos o arquivo após sucesso dos dados.
