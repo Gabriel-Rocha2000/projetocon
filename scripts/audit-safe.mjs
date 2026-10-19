@@ -45,7 +45,8 @@ assert(contextual.includes('não têm vínculo direto comprovado'), "Questões r
 assert(contextual.includes('Voltar à teoria') && contextual.includes('Comentário / fundamento'), "Leitura e correção contextual ausentes");
 assert(contextual.includes('sessionStorage.setItem(storageKey'), "Posição de leitura deve ser mantida");
 assert(detail.includes('addError('), "Erros precisam alimentar o caderno");
-assert(read("app/questoes/[id]/page.tsx").includes('Retornar ao microbloco de leitura'), "Retorno ao microbloco ausente");
+const questionDetail = read("app/questoes/[id]/page.tsx");
+assert(questionDetail.includes('const contentHref =') && questionDetail.includes('?block=') && questionDetail.includes('href={contentHref}'), "Retorno ao microbloco precisa conservar o ID e linkar para o leitor");
 console.log("Leitor contextual: 6 verificações adicionais passaram.");
 
 // Separação de interface na v1.5.2: não executar operações administrativas no Modo Estudos.
