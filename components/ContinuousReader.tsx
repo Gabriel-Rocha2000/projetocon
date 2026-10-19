@@ -20,7 +20,10 @@ type Props = {
   onFinishBlock: (b: ContentBlock, difficulty: Difficulty) => Promise<void>;
   onFinishSection: (bs: ContentBlock[], difficulty: Difficulty) => Promise<void>;
 };
-type Mode = "teoria" | "questoes" | "resumo" | "pdf";
+type Mode = "teoria" | "questoes" | "resumo";
+const MIN_PDF_ZOOM = 75;
+const MAX_PDF_ZOOM = 200;
+const PDF_ZOOM_STEP = 25;
 type Answer = { correct: boolean; selected: string };
 const pages = (a?: number | null, b?: number | null) => a == null ? "Fonte não paginada" : b == null || b === a ? "p. " + a : "pp. " + a + "–" + b;
 const hasLink = (q: Question, id: string) => q.contentBlockId === id || !!q.contentBlockIds?.includes(id);
@@ -32,6 +35,8 @@ export default function ContinuousReader({ topic, blocks, questions, doneBlocks,
   const [sectionIndex, setSectionIndex] = useState(0);
   const [conceptId, setConceptId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("teoria");
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfZoom, setPdfZoom] = useState(100);
   const [related, setRelated] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
@@ -45,6 +50,26 @@ export default function ContinuousReader({ topic, blocks, questions, doneBlocks,
   const [pdfCandidates, setPdfCandidates] = useState<Material[]>([]);
   const [fallbackId, setFallbackId] = useState("");
   const [pdfPage, setPdfPage] = useState<number | null>(null);
+  const pdfDisplayUrl = useMemo(() => {
+    if (!pdfUrl) return "";
+    const pdfSource = new URL(pdfUrl);
+    const params = new URLSearchParams();
+    if (pdfPage != null && Number.isFinite(pdfPage) && pdfPage > 0) {
+      params.set("page", String(Math.floor(pdfPage)));
+    }
+    params.set("zoom", String(pdfZoom));
+    pdfSource.hash = params.toString();
+    return pdfSource.toString();
+  }, [pdfUrl, pdfPage, pdfZoom]);
+  const togglePdf = () => {
+    if (pdfOpen) {
+      setPdfOpen(false);
+    } else if (pdfUrl) {
+      setPdfOpen(true);
+    } else {
+      void openPdf(materialId, sourcePage);
+    }
+  };
 
   const section = sections[Math.min(sectionIndex, Math.max(0, sections.length - 1))];
   const items = section?.blocks || [];
@@ -109,7 +134,7 @@ export default function ContinuousReader({ topic, blocks, questions, doneBlocks,
     topRef.current?.scrollIntoView({ behavior:"smooth",block:"start" });
   };
   const openPdf = async (requestedId: string, page: number | null) => {
-    setMode("pdf");
+    setPdfOpen(true);
     setPdfBusy(true);
     setPdfMessage("Localizando PDF no Firebase Storage...");
     setPdfUrl("");
@@ -123,7 +148,7 @@ export default function ContinuousReader({ topic, blocks, questions, doneBlocks,
         return;
       }
       const url = await getDownloadURL(storageRef(storage, selected.storagePath));
-      setPdfUrl(url + (page != null ? "#page=" + page : ""));
+      setPdfUrl(url);
       setPdfMessage("Fonte: " + selected.title + ". Confira a diferença entre página impressa e física.");
     } catch (e) {
       setPdfMessage(e instanceof Error ? e.message : "Falha ao carregar o PDF.");
@@ -162,7 +187,7 @@ export default function ContinuousReader({ topic, blocks, questions, doneBlocks,
   };
 
   if (!section) return null;
-  return <div ref={topRef} className={"continuousReader" + (mode === "pdf" ? " withPdf" : "")}>
+  return <div ref={topRef} className={"continuousReader" + (pdfOpen ? " withPdf" : "")}>
     <aside className="continuousOutline" aria-label="Índice da aula">
       <header className="continuousOutlineHeader"><strong>Índice da aula</strong><small>{done}/{blocks.length} conceitos estudados</small></header>
       <div className="continuousSections">{sections.map((s, i) => <div className="continuousSectionGroup" key={s.id}>
@@ -182,15 +207,21 @@ export default function ContinuousReader({ topic, blocks, questions, doneBlocks,
         <span className="contextCounter">{sectionIndex+1}/{sections.length}</span>
       </header>
       <div className="contextProgressTrack"><div style={{width:(blocks.length ? 100*done/blocks.length : 0)+"%"}}/></div>
-      <div className="contextTabs" role="tablist">
-        {(["teoria","questoes","resumo","pdf"] as const).map((tab) =>
+      <div className="contextTabs" role="tablist" aria-label="Modo de estudo">
+        {(["teoria","questoes","resumo"] as const).map((tab) =>
           <button key={tab} type="button" role="tab" aria-selected={mode===tab} className={mode===tab ? "selected":""}
-            onClick={() => tab==="pdf" ? void openPdf(materialId,sourcePage) : tab==="questoes" ? openQuestions() : setMode(tab)}>
-            {tab==="teoria"?"Teoria":tab==="questoes"?"Questões":tab==="resumo"?"Resumo":"PDF fonte"}
+            onClick={() => tab==="questoes" ? openQuestions() : setMode(tab)}>
+            {tab==="teoria"?"Teoria":tab==="questoes"?"Questões":"Resumo"}
           </button>)}
+        <button type="button" className={"continuousPdfToggle" + (pdfOpen ? " selected":"")}
+          aria-pressed={pdfOpen} aria-controls="clt-pdf-panel" onClick={togglePdf}>
+          {pdfOpen ? "Ocultar PDF" : "Mostrar PDF fonte"}
+        </button>
       </div>
-      {(mode==="teoria"||mode==="pdf") ? <div className="continuousTheory">
-        <div className="continuousIntro"><p>Leia a seção completa, com subtítulos e exemplos na sequência do material.</p><button type="button" onClick={() => void openPdf(materialId,sourcePage)}>Consultar PDF ao lado ↗</button></div>
+      {mode==="teoria" ? <div className="continuousTheory">
+        <div className="continuousIntro"><p>Leia a seção completa, com subtítulos e exemplos na sequência do material.</p>
+          <button type="button" onClick={togglePdf} aria-pressed={pdfOpen}>{pdfOpen ? "Ocultar PDF" : "Consultar PDF ao lado ↗"}</button>
+        </div>
         {items.map((b,i) => <article key={b.id} id={"clt-concept-"+b.id} className="continuousConcept">
           <div className="continuousConceptHead"><span className="continuousConceptNumber">{i+1}</span>
             <div><h3>{b.title}</h3><small>{pages(b.sourcePageStart,b.sourcePageEnd)}</small></div>
@@ -243,10 +274,21 @@ export default function ContinuousReader({ topic, blocks, questions, doneBlocks,
         <span>Seção {sectionIndex+1}/{sections.length}</span>
         <button disabled={sectionIndex>=sections.length-1} onClick={()=>goSection(sectionIndex+1)}>Próxima seção →</button></nav>
     </section>
-    {mode==="pdf" && <aside className="continuousPdf" aria-label="PDF da apostila">
-      <div className="contextPdfHeader"><div><strong>PDF da apostila</strong><small>{pages(pdfPage,pdfPage)}</small></div><button type="button" className="miniButton" onClick={()=>setMode("teoria")}>✕</button></div>
-      {pdfUrl ? <><iframe title="PDF original" src={pdfUrl} loading="lazy" className="contextPdfFrame" referrerPolicy="no-referrer"/>
-        <div className="contextPdfFooter"><span>Confira a numeração física e impressa do PDF.</span><a href={pdfUrl} target="_blank" rel="noopener noreferrer">Abrir documento ↗</a></div></> :
+    {pdfOpen && <aside id="clt-pdf-panel" className="continuousPdf" aria-label="PDF da apostila">
+      <div className="contextPdfHeader">
+        <div><strong>PDF da apostila</strong><small>{pages(pdfPage,pdfPage)}</small></div>
+        <div className="continuousPdfControls" role="group" aria-label="Ampliação do PDF">
+          <button type="button" aria-label="Diminuir zoom do PDF" title="Diminuir zoom" disabled={!pdfUrl || pdfZoom <= MIN_PDF_ZOOM}
+            onClick={() => setPdfZoom(z => Math.max(MIN_PDF_ZOOM, z - PDF_ZOOM_STEP))}>−</button>
+          <span aria-live="polite" title="Ampliação atual do PDF">{pdfZoom}%</span>
+          <button type="button" aria-label="Aumentar zoom do PDF" title="Aumentar zoom" disabled={!pdfUrl || pdfZoom >= MAX_PDF_ZOOM}
+            onClick={() => setPdfZoom(z => Math.min(MAX_PDF_ZOOM, z + PDF_ZOOM_STEP))}>+</button>
+          <button type="button" className="continuousPdfClose" onClick={() => setPdfOpen(false)}
+            aria-label="Ocultar PDF" title="Ocultar PDF">✕</button>
+        </div>
+      </div>
+      {pdfUrl ? <><iframe title="PDF original" src={pdfDisplayUrl} loading="lazy" className="contextPdfFrame" referrerPolicy="no-referrer"/>
+        <div className="contextPdfFooter"><span>Zoom {pdfZoom}% · Confira a numeração física e impressa do PDF.</span><a href={pdfDisplayUrl} target="_blank" rel="noopener noreferrer">Abrir documento ↗</a></div></> :
         <div className="contextPdfEmpty"><strong>{pdfBusy?"Localizando fonte...":"Fonte não vinculada"}</strong><p>{pdfMessage||"Nenhum PDF cadastrado para este material."}</p>
           {!pdfBusy && pdfCandidates.length>0 && <><label htmlFor="clt-select-pdf">Selecionar PDF desta disciplina</label>
             <select id="clt-select-pdf" value={fallbackId} onChange={e=>setFallbackId(e.target.value)}><option value="">Escolha um arquivo...</option>
