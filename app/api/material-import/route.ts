@@ -44,17 +44,34 @@ function splitIntoBlocks(raw: string) {
 
 export async function POST(request: Request) {
   try {
-    const form = await request.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) return NextResponse.json({ error: "Envie um PDF." }, { status: 400 });
-    if (!file.name.toLowerCase().endsWith(".pdf")) return NextResponse.json({ error: "O arquivo precisa ser PDF." }, { status: 400 });
-    const bytes = Buffer.from(await file.arrayBuffer());
+    // PDFs grandes são enviados primeiro ao Firebase Storage pelo navegador.
+    // A API recebe apenas um link temporário de download, evitando HTTP 413
+    // (limite do corpo das requisições em plataformas serverless).
+    const input = await request.json().catch(() => null);
+    const sourceUrl = String(input?.url || "");
+    const fileName = String(input?.fileName || "");
+    if (!fileName.toLowerCase().endsWith(".pdf")) return NextResponse.json({ error: "Envie um PDF." }, { status: 400 });
+    let url: URL;
+    try { url = new URL(sourceUrl); }
+    catch { return NextResponse.json({ error: "URL de material inválida." }, { status: 400 }); }
+    const allowed = url.protocol === "https:" &&
+      url.hostname === "firebasestorage.googleapis.com" &&
+      /^\\/v0\\/b\\/[^/]+\\/o\\//.test(url.pathname) &&
+      decodeURIComponent(url.pathname).includes("/users/") &&
+      decodeURIComponent(url.pathname).includes("/materials/");
+    if (!allowed) return NextResponse.json({ error: "O PDF deve estar no Firebase Storage do projeto." }, { status: 400 });
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(60000), redirect: "error" });
+    if (!response.ok) return NextResponse.json({ error: "Não foi possível ler o PDF armazenado." }, { status: 502 });
+    const length = Number(response.headers.get("content-length") || 0);
+    if (length > 30 * 1024 * 1024) return NextResponse.json({ error: "PDF acima do limite de 30 MB para processamento experimental." }, { status: 413 });
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > 30 * 1024 * 1024) return NextResponse.json({ error: "PDF acima do limite de 30 MB." }, { status: 413 });
     const parsed = await pdf(bytes);
     const fileHash = createHash("sha256").update(bytes).digest("hex");
     const allBlocks = splitIntoBlocks(parsed.text || "");
     const truncated = allBlocks.length > 250;
     const blocks = allBlocks.slice(0, 250);
-    return NextResponse.json({ fileName: file.name, fileHash, pages: parsed.numpages || null, blockCount: blocks.length, blocks, warning: `${truncated ? `ATENÇÃO: ${allBlocks.length - 250} blocos excedentes não foram incluídos nesta prévia experimental. Use CSV validado para uma importação completa. ` : ""}Os microblocos agora agrupam trechos maiores para preservar contexto; confira cada bloco antes de salvar. O texto original não é resumido nem reescrito.` });
+    return NextResponse.json({ fileName, fileHash, pages: parsed.numpages || null, blockCount: blocks.length, blocks, warning: `${truncated ? `ATENÇÃO: ${allBlocks.length - 250} blocos excedentes não foram incluídos nesta prévia experimental. Use CSV validado para uma importação completa. ` : ""}Os microblocos agora agrupam trechos maiores para preservar contexto; confira cada bloco antes de salvar. O texto original não é resumido nem reescrito.` });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Não foi possível processar o material." }, { status: 500 });
   }
