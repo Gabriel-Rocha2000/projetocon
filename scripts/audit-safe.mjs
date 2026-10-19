@@ -71,4 +71,6 @@ const readerSource = read('components/ContinuousReader.tsx');
 assert.ok(readerSource.includes('buildReadingSections'), 'Leitor contínuo sem agrupamento de seções.');
 assert.ok(readerSource.includes('onFinishSection'), 'Leitor contínuo sem conclusão de seção.');
 assert.ok(read("app/conteudo/[id]/page.tsx").includes("getContentBlocksByTopicIds(childIds)"), "O tema principal deve carregar a teoria dos subtópicos.");
+assert.ok(read("app/globals.css").includes(".continuousReader.withPdf") && read("app/globals.css").includes(".continuousReader>.continuousPdf"), "O painel lateral do PDF exige o grid real do ContinuousReader.");
+assert.ok(readerSource.includes('className={"continuousReader"'), "Componente deve usar a classe do layout contínuo.");
 console.log('Leitor contínuo: estruturas verificadas.');
