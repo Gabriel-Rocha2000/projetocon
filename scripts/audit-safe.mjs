@@ -73,4 +73,10 @@ assert.ok(readerSource.includes('onFinishSection'), 'Leitor contínuo sem conclu
 assert.ok(read("app/conteudo/[id]/page.tsx").includes("getContentBlocksByTopicIds(childIds)"), "O tema principal deve carregar a teoria dos subtópicos.");
 assert.ok(read("app/globals.css").includes(".continuousReader.withPdf") && read("app/globals.css").includes(".continuousReader>.continuousPdf"), "O painel lateral do PDF exige o grid real do ContinuousReader.");
 assert.ok(readerSource.includes('className={"continuousReader"'), "Componente deve usar a classe do layout contínuo.");
+
+assert.ok(readerSource.includes('const [pdfOpen, setPdfOpen]') && readerSource.includes('className={"continuousReader" + (pdfOpen'), "PDF deve abrir independentemente da aba de teoria ou questões.");
+assert.ok(readerSource.includes('aria-label="Aumentar zoom do PDF"') && readerSource.includes('aria-label="Diminuir zoom do PDF"'), "Faltam os botões de zoom do PDF.");
+assert.ok(readerSource.includes('params.set("zoom"') && readerSource.includes('src={pdfDisplayUrl}'), "O zoom deve ser aplicado ao visualizador PDF.");
+assert.ok(readerSource.includes('className="continuousQuestionActions"') && readerSource.includes('onClick={togglePdf}'), "Questões devem permitir mostrar/ocultar PDF.");
+assert.ok(read("app/globals.css").includes('.continuousPdfControls') && read("app/globals.css").includes('.continuousQuestionActions'), "Faltam estilos dos controles de PDF.");
 console.log('Leitor contínuo: estruturas verificadas.');
