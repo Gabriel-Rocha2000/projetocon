@@ -38,6 +38,7 @@ export default function ContextualReader({
   const readerTop = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [mode, setMode] = useState<ReaderMode>("teoria");
+  const [splitStudy, setSplitStudy] = useState(false);
   const [scope, setScope] = useState<QuestionScope>("diretas");
   const [questionIndex, setQuestionIndex] = useState(0);
   const [choices, setChoices] = useState<Record<string, string>>({});
@@ -61,6 +62,19 @@ export default function ContextualReader({
     setScope("diretas");
     setFeedback("");
   }, [storageKey, blockIds, initialBlockId]);
+
+  useEffect(() => {
+    document.body.classList.toggle("splitStudyActive", splitStudy);
+    return () => document.body.classList.remove("splitStudyActive");
+  }, [splitStudy]);
+
+  function toggleSplitStudy() {
+    if (!splitStudy) {
+      setMode("questoes");
+      if (!sourceUrl && !sourceLoading) void findSource();
+    }
+    setSplitStudy(value => !value);
+  }
 
   const block = blocks[Math.min(activeIndex, blocks.length - 1)];
   const directQuestions = useMemo(() => {
@@ -169,7 +183,7 @@ export default function ContextualReader({
 
   if (!block) return null;
 
-  return <div className={`contextReader ${mode === "pdf" ? "withPdf" : ""}`} ref={readerTop}>
+  return <div className={`contextReader ${mode === "pdf" || splitStudy ? "withPdf" : ""} ${splitStudy ? "splitStudyReader" : ""}`} ref={readerTop}>
     <aside className="contextOutline" aria-label="Índice dos microblocos">
       <div className="contextOutlineHead"><strong>Neste conteúdo</strong><small>{completed}/{blocks.length} estudados</small></div>
       <div className="contextOutlineScroll">
@@ -182,6 +196,7 @@ export default function ContextualReader({
     </aside>
 
     <section className="contextReadingPane" aria-label="Leitor contextual">
+      <div className="splitStudyToolbar"><button type="button" className="miniButton" onClick={toggleSplitStudy}>{splitStudy ? "↩ Voltar ao formato normal" : "⛶ Questões + PDF (tela dividida)"}</button></div>
       <div className="contextReaderTop">
         <div><span className="contextEyebrow">LEITURA GUIADA · {topic.discipline}</span><h2>{block.title || topic.title}</h2><span className="contextMeta">Microbloco {activeIndex + 1} de {blocks.length} · {block.estimatedMinutes || 5} min de leitura</span></div>
         <span className="contextCounter">{activeIndex + 1}/{blocks.length}</span>
@@ -230,7 +245,7 @@ export default function ContextualReader({
       {feedback && <p className="contextReaderFeedback" role="status">{feedback}</p>}
       <nav className="contextBottomNav" aria-label="Navegação entre microblocos"><button type="button" disabled={activeIndex === 0} onClick={() => changeBlock(activeIndex - 1)}>← Bloco anterior</button><span>Bloco {activeIndex + 1} / {blocks.length}</span><button type="button" disabled={activeIndex === blocks.length - 1} onClick={() => changeBlock(activeIndex + 1)}>Próximo bloco →</button></nav>
     </section>
-    {mode === "pdf" && <aside className="contextPdfPane" aria-label="PDF original ao lado da teoria">
+    {(mode === "pdf" || splitStudy) && <aside className="contextPdfPane" aria-label="PDF original ao lado da teoria">
       <div className="contextPdfHeader"><div><strong>PDF da apostila</strong><small>{pageReference(block) || "Página não identificada"}</small></div><button type="button" className="miniButton" onClick={() => setMode("teoria")} aria-label="Fechar visualização de PDF">✕</button></div>
       {sourceUrl ? <>
         <iframe title={`PDF de referência — ${block.title}`} src={sourceUrl} className="contextPdfFrame" loading="lazy" referrerPolicy="no-referrer" />
