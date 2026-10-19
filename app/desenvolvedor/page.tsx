@@ -2,7 +2,7 @@
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import { useContest } from "@/contexts/ContestContext";
-import { Map, BookText, ClipboardList, Files, FileText, FileCheck2, History, ArrowRight } from "lucide-react";
+import { Map, BookText, ClipboardList, Files, FileText, FileCheck2, History, RotateCcw, ArrowRight } from "lucide-react";
 const items = [
   { href: "/desenvolvedor/mapa", name: "Mapa-Mestre", detail: "Editar títulos, nomes, vínculos e retirar/restaurar itens", icon: Map },
   { href: "/desenvolvedor/importar-mapa", name: "Importar estrutura", detail: "Adicionar tópicos e subtópicos com validação de CSV", icon: Files },
@@ -11,6 +11,7 @@ const items = [
   { href: "/desenvolvedor/importar-questoes", name: "Importação de questões", detail: "Importar CSV validado e conferir PDFs experimentais", icon: Files },
   { href: "/desenvolvedor/materiais", name: "PDFs e materiais", detail: "Localizar fontes e abrir PDFs salvos no Storage", icon: FileText },
   { href: "/desenvolvedor/auditoria", name: "Auditoria", detail: "Verificar vínculos quebrados antes de reimportar", icon: FileCheck2 },
+  { href: "/desenvolvedor/reiniciar-base", name: "Reinicializar base", detail: "Backup, exclusão conferida e reimportação guiada de mapas, conteúdo e questões", icon: RotateCcw },
   { href: "/desenvolvedor/seguranca", name: "Histórico e segurança", detail: "Regras de proteção e recursos ainda planejados", icon: History },
 ];
 export default function DeveloperHome() {
