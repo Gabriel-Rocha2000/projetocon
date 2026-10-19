@@ -21,7 +21,8 @@ assert(deleteDiscipline.includes("limit(1)"), "Exclusão não deve baixar coleç
 assert(content.includes("Padronizar nome") && content.includes("Retirar do concurso"), "Gerenciamento das disciplinas ausente");
 assert(questions.includes("activeDisciplineSet.has(q.discipline)"), "Disciplinas retiradas devem ser ocultas do caderno de questões");
 assert(contest.includes("error: string | null"), "Falha de leitura deve ser explicitada");
-assert.equal(packageJson.version, "1.5.3");
+assert.match(packageJson.version, /^\d+\.\d+\.\d+$/, "Versão do package.json inválida");
+assert.equal(packageJson.version, read("VERSION").trim(), "VERSION deve corresponder ao package.json");
 assert(!content.includes("await deleteContentBlocksByMaterial(material.id)"), "Importação de CSV não deve apagar microblocos automaticamente");
 assert(read("app/dashboard/page.tsx").includes("dashboardError"), "Dashboard deve exibir falhas de carregamento");
 
