@@ -207,12 +207,14 @@ export default function ContinuousReader({ topic, blocks, questions, doneBlocks,
         <span className="contextCounter">{sectionIndex+1}/{sections.length}</span>
       </header>
       <div className="contextProgressTrack"><div style={{width:(blocks.length ? 100*done/blocks.length : 0)+"%"}}/></div>
-      <div className="contextTabs" role="tablist" aria-label="Modo de estudo">
+      <div className="contextTabs">
+        <div className="continuousModeTabs" role="tablist" aria-label="Modo de estudo">
         {(["teoria","questoes","resumo"] as const).map((tab) =>
           <button key={tab} type="button" role="tab" aria-selected={mode===tab} className={mode===tab ? "selected":""}
             onClick={() => tab==="questoes" ? openQuestions() : setMode(tab)}>
             {tab==="teoria"?"Teoria":tab==="questoes"?"Questões":"Resumo"}
           </button>)}
+        </div>
         <button type="button" className={"continuousPdfToggle" + (pdfOpen ? " selected":"")}
           aria-pressed={pdfOpen} aria-controls="clt-pdf-panel" onClick={togglePdf}>
           {pdfOpen ? "Ocultar PDF" : "Mostrar PDF fonte"}
@@ -241,7 +243,10 @@ export default function ContinuousReader({ topic, blocks, questions, doneBlocks,
       </div> : mode==="resumo" ? <div className="continuousTheory"><h3>Resumo da seção</h3><p>Não há resumo validado independente para esta seção. Consulte a teoria e o PDF original para não perder conteúdo.</p><button className="miniButton" type="button" onClick={()=>setMode("teoria")}>← Voltar à teoria</button></div> :
       <div className="continuousTheory">
         <div className="contextPracticeHeading"><div><span className="contextEyebrow">QUESTÕES VINCULADAS</span><h3>{conceptId ? "Questões: "+(activeConcept?.title||"conceito") : "Questões desta seção"}</h3></div>
-          <button type="button" className="miniButton" onClick={()=>setMode("teoria")}>← Voltar à leitura</button></div>
+          <div className="continuousQuestionActions">
+            <button type="button" className="miniButton" aria-pressed={pdfOpen} onClick={togglePdf}>{pdfOpen ? "Ocultar PDF" : "Consultar PDF ↗"}</button>
+            <button type="button" className="miniButton" onClick={()=>setMode("teoria")}>← Voltar à leitura</button>
+          </div></div>
         <div className="continuousScopes"><button className={!related?"active":""} onClick={()=>openQuestions(conceptId,false)}>Vínculos diretos ({direct.length})</button>
           <button className={related?"active":""} onClick={()=>openQuestions(conceptId,true)}>Relacionadas ({relatedQs.length})</button>
           {conceptId && <button onClick={()=>openQuestions()}>Toda a seção</button>}</div>
