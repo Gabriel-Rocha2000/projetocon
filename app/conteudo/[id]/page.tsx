@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import ContextualReader from "@/components/ContextualReader";
+import ContinuousReader from "@/components/ContinuousReader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useContest } from "@/contexts/ContestContext";
 import {
@@ -12,6 +12,7 @@ import {
   answerQuestion,
   getContentBlockProgress,
   getContentBlocks,
+  getContentBlocksByMaterial,
   getContentNode,
   getErrors,
   getLawItems,
@@ -65,10 +66,31 @@ export default function ConteudoDetalhePage() {
         if (!active) return;
         const ownBlocks = blockRows.filter(block => block.topicId === t.id);
         const selectedBlocks = ownBlocks.length ? ownBlocks : blockRows.filter(block => block.contentId === contentId);
+        // A apostila é a unidade de leitura; os blocos continuam individuais para revisões.
+        const preferredMaterialId = selectedBlocks.find(b => b.materialId && b.tags?.includes("importado_csv_validado"))?.materialId
+          || selectedBlocks.find(b => b.materialId)?.materialId;
+        let readingBlocks = preferredMaterialId
+          ? selectedBlocks.filter(b => b.materialId === preferredMaterialId)
+          : selectedBlocks;
+        if (preferredMaterialId) {
+          try {
+            const materialBlocks = await getContentBlocksByMaterial(preferredMaterialId);
+            if (!active) return;
+            const eligible = materialBlocks.filter(b => b.archived !== true && b.discipline === t.discipline);
+            if (eligible.length > readingBlocks.length) readingBlocks = eligible;
+          } catch { /* Mantém os blocos do tópico se a consulta por material falhar. */ }
+        }
+        const topicIds = new Set(readingBlocks.map(b => b.topicId).filter((x): x is string => !!x));
+        topicIds.add(t.id);
+        const blockIds = new Set(readingBlocks.map(b => b.id));
         setTopic(t);
         setNode(content);
-        setBlocks([...selectedBlocks].sort((a, b) => a.order - b.order));
-        setQuestions(qs.filter(q => q.topicId === t.id || q.subtopicId === t.id));
+        setBlocks([...readingBlocks].sort((a,b) =>
+          (a.sourcePageStart ?? 99999)-(b.sourcePageStart ?? 99999) || a.order-b.order));
+        setQuestions(qs.filter(q => topicIds.has(q.topicId)
+          || (q.subtopicId != null && topicIds.has(q.subtopicId))
+          || (q.contentBlockId != null && blockIds.has(q.contentBlockId))
+          || q.contentBlockIds?.some(blockId => blockIds.has(blockId))));
         setLaws(lawRows.filter(l => l.topicId === t.id || l.subtopicId === t.id));
         setErrors(errorRows.filter((e: any) => e.topicId === t.id || e.subtopicId === t.id));
         setBlockProgress(progress);
@@ -113,6 +135,15 @@ export default function ConteudoDetalhePage() {
     setBlockProgress(await getContentBlockProgress(user.uid, activeContestId));
   }
 
+  async function finishSection(pending: ContentBlock[], difficulty: Difficulty) {
+    if (!user) throw new Error("Faça login para registrar a leitura.");
+    try {
+      for (const block of pending) await saveContentBlockProgress(user.uid, activeContestId, block, difficulty);
+    } finally {
+      setBlockProgress(await getContentBlockProgress(user.uid, activeContestId));
+    }
+  }
+
   if (loading) return <AppShell><div className="panel">Carregando leitor e vínculos de questões…</div></AppShell>;
   if (loadError || !topic) return <AppShell><section className="panel"><h2>Não foi possível abrir o conteúdo</h2><p>{loadError || "Tópico não encontrado."}</p><Link className="actionButton secondaryAction" href="/conteudo">Voltar para conteúdos</Link></section></AppShell>;
 
@@ -126,7 +157,7 @@ export default function ConteudoDetalhePage() {
       </div>
     </nav>
     <header className="pageHeader contentDetailHeader">
-      <div><span className="badge">{topic.discipline}</span><h1>{topic.title}</h1><p className="muted">Leitura focada e questões com vínculos identificados · {topic.canonicalContentId || topic.id}</p></div>
+      <div><span className="badge">{topic.discipline}</span><h1>{topic.title}</h1><p className="muted">Leitura contínua por seções e questões vinculadas · {topic.canonicalContentId || topic.id}</p></div>
       <div className="quickActions">
         <Link className="actionButton secondaryAction" href={`/questoes?topic=${encodeURIComponent(topic.id)}`}>Caderno geral ({questions.length})</Link>
         <Link className="actionButton secondaryAction" href={`/registrar-estudo?topic=${encodeURIComponent(topic.id)}`}>Registrar estudo</Link>
@@ -136,7 +167,7 @@ export default function ConteudoDetalhePage() {
 
     {message && <p className="statusBox" role="status">{message}</p>}
 
-    {blocks.length > 0 ? <ContextualReader
+    {blocks.length > 0 ? <ContinuousReader
       topic={topic}
       blocks={blocks}
       questions={questions}
@@ -146,6 +177,7 @@ export default function ConteudoDetalhePage() {
       initialBlockId={searchParams.get("block")}
       onAnswer={answerInline}
       onFinishBlock={finishBlock}
+      onFinishSection={finishSection}
     /> : <section className="panel">
       <div className="panelHeader"><div><h2>Conteúdo de estudo</h2><p className="muted">Ainda não há microblocos importados para este tópico. O texto do edital não substitui a teoria da apostila.</p></div></div>
       <div className="contentReading"><p>{node?.text || topic.originalText || "Nenhum texto disponível."}</p>{node?.sourceLabel && <div className="sourceBox">Fonte: {node.sourceLabel}{node.sourcePage ? ` · ${node.sourcePage}` : ""}</div>}</div>
