@@ -80,3 +80,14 @@ assert.ok(readerSource.includes('params.set("zoom"') && readerSource.includes('s
 assert.ok(readerSource.includes('className="continuousQuestionActions"') && readerSource.includes('onClick={togglePdf}'), "Questões devem permitir mostrar/ocultar PDF.");
 assert.ok(read("app/globals.css").includes('.continuousPdfControls') && read("app/globals.css").includes('.continuousQuestionActions'), "Faltam estilos dos controles de PDF.");
 console.log('Leitor contínuo: estruturas verificadas.');
+
+const resetSource = read("lib/studyReset.ts");
+const resetPage = read("app/desenvolvedor/reiniciar-base/page.tsx");
+assert(resetSource.includes('RESET_GLOBAL_COLLECTIONS') && resetSource.includes('RESET_USER_COLLECTIONS'), "Reset exige escopo declarado de coleções.");
+assert(resetSource.includes('prepareStudyReset(') && resetSource.includes('makeStudyResetBackup('), "Reset exige inventário e backup.");
+assert(resetSource.includes('getCountFromServer') && resetSource.includes('executeStudyReset('), "Reset precisa conferir contagens após deletar.");
+assert(!resetSource.includes('deleteObject('), "Reset não pode excluir PDFs no Storage.");
+assert(resetSource.includes('preservedPdfMaterials'), "Reset deve preservar os materiais PDF com Storage.");
+assert(resetPage.includes('CONFIRMATION = "ZERAR BASE COMPLETA"') && resetPage.includes('savedConfirmed'), "Reset exige dupla confirmação e backup.");
+assert(read("app/desenvolvedor/page.tsx").includes('"/desenvolvedor/reiniciar-base"'), "Reset deve estar acessível no Modo Desenvolvedor.");
+console.log("Reinicialização segura: dependências estáticas conferidas.");
