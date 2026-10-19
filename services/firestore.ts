@@ -3905,6 +3905,34 @@ export async function getMaterials(
   return rows.filter(row => !contestId || !row.contestId || row.contestId === contestId);
 }
 
+/**
+ * Localiza os microblocos dos subtópicos de uma seção do Mapa-Mestre.
+ * Usa consultas em lotes para não baixar a coleção inteira do Firestore.
+ * Não altera nenhum documento; os IDs originais permanecem intactos.
+ */
+export async function getContentBlocksByTopicIds(topicIds: string[]): Promise<ContentBlock[]> {
+  const ids = [...new Set(topicIds.filter(Boolean))];
+  if (!ids.length) return [];
+  const blocks = new Map<string, ContentBlock>();
+
+  // O operador "in" aceita até 30 valores por consulta.
+  for (let offset = 0; offset < ids.length; offset += 30) {
+    const batch = ids.slice(offset, offset + 30);
+    const snap = await getDocs(query(
+      collection(db, "content_blocks"),
+      where("topicId", "in", batch)
+    ));
+    for (const row of snap.docs) {
+      const block = { id: row.id, ...row.data() } as ContentBlock;
+      if (block.archived !== true) blocks.set(block.id, block);
+    }
+  }
+  return [...blocks.values()].sort((a, b) =>
+    (a.sourcePageStart ?? 99999) - (b.sourcePageStart ?? 99999) ||
+    a.order - b.order || a.id.localeCompare(b.id)
+  );
+}
+
 export async function getContentBlocksByMaterial(
   materialId: string
 ): Promise<ContentBlock[]> {
