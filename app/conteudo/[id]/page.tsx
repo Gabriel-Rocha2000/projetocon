@@ -14,6 +14,7 @@ import {
   getContentBlocks,
   getContentBlocksByMaterial,
   getContentNode,
+  getMaterials,
   getErrors,
   getLawItems,
   getQuestions,
@@ -21,15 +22,17 @@ import {
   getTopics,
   saveContentBlockProgress,
 } from "@/services/firestore";
-import { AnswerConfidence, ContentBlock, ContentNode, Difficulty, LawItem, Question, Topic } from "@/types";
+import { AnswerConfidence, ContentBlock, ContentNode, Difficulty, LawItem, Material, Question, Topic } from "@/types";
 
 export default function ConteudoDetalhePage() {
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const requestedMaterialId = searchParams.get("material") || "";
   const { user } = useAuth();
   const { activeContestId } = useContest();
   const [topic, setTopic] = useState<Topic | null>(null);
   const [allTopics, setAllTopics] = useState<Topic[]>([]);
+  const [availableMaterials, setAvailableMaterials] = useState<Material[]>([]);
   const [node, setNode] = useState<ContentNode | null>(null);
   const [blocks, setBlocks] = useState<ContentBlock[]>([]);
   const [blockProgress, setBlockProgress] = useState<any[]>([]);
@@ -56,18 +59,28 @@ export default function ConteudoDetalhePage() {
           return;
         }
         const contentId = t.canonicalContentId || t.id;
-        const [content, blockRows, qs, lawRows, errorRows, progress, topicRows] = await Promise.all([
+        const [content, blockRows, qs, lawRows, errorRows, progress, topicRows, materialRows] = await Promise.all([
           getContentNode(t), getContentBlocks(contentId), getQuestions(activeContestId),
           getLawItems(activeContestId),
           user ? getErrors(user.uid, activeContestId) : Promise.resolve([]),
           user ? getContentBlockProgress(user.uid, activeContestId) : Promise.resolve([]),
           getTopics(activeContestId),
+          getMaterials(), // biblioteca de fontes pode ser compartilhada entre concursos
         ]);
         if (!active) return;
+        const candidateMaterials = materialRows.filter(m => m.discipline === t.discipline);
+        setAvailableMaterials(candidateMaterials);
+        const requestedMaterial = requestedMaterialId ? candidateMaterials.find(m => m.id === requestedMaterialId) : null;
+        if (requestedMaterialId && !requestedMaterial) {
+          setLoadError("A apostila selecionada não foi encontrada nesta disciplina. Volte aos conteúdos e escolha outra fonte.");
+          setLoading(false);
+          return;
+        }
         const ownBlocks = blockRows.filter(block => block.topicId === t.id);
         const selectedBlocks = ownBlocks.length ? ownBlocks : blockRows.filter(block => block.contentId === contentId);
         // A apostila é a unidade de leitura; os blocos continuam individuais para revisões.
-        const preferredMaterialId = selectedBlocks.find(b => b.materialId && b.tags?.includes("importado_csv_validado"))?.materialId
+        const preferredMaterialId = requestedMaterial?.id
+          || selectedBlocks.find(b => b.materialId && b.tags?.includes("importado_csv_validado"))?.materialId
           || selectedBlocks.find(b => b.materialId)?.materialId;
         let readingBlocks = preferredMaterialId
           ? selectedBlocks.filter(b => b.materialId === preferredMaterialId)
@@ -77,8 +90,11 @@ export default function ConteudoDetalhePage() {
             const materialBlocks = await getContentBlocksByMaterial(preferredMaterialId);
             if (!active) return;
             const eligible = materialBlocks.filter(b => b.archived !== true && b.discipline === t.discipline);
-            if (eligible.length > readingBlocks.length) readingBlocks = eligible;
-          } catch { /* Mantém os blocos do tópico se a consulta por material falhar. */ }
+            if (requestedMaterial || eligible.length > readingBlocks.length) readingBlocks = eligible;
+          } catch (error) {
+            if (requestedMaterial) throw error; // Pedido explícito de apostila não pode falhar silenciosamente.
+            /* Mantém os blocos do tópico se a consulta automática por material falhar. */
+          }
         }
         const topicIds = new Set(readingBlocks.map(b => b.topicId).filter((x): x is string => !!x));
         topicIds.add(t.id);
@@ -104,7 +120,7 @@ export default function ConteudoDetalhePage() {
     }
     load();
     return () => { active = false; };
-  }, [id, activeContestId, user?.uid]);
+  }, [id, activeContestId, user?.uid, requestedMaterialId]);
 
   const doneBlocks = useMemo(() => new Set(blockProgress.filter(p => p.completed).map(p => p.contentBlockId)), [blockProgress]);
   const activeErrors = useMemo(() => errors.filter((e: any) => e.status !== "consolidado"), [errors]);
@@ -167,6 +183,15 @@ export default function ConteudoDetalhePage() {
 
     {message && <p className="statusBox" role="status">{message}</p>}
 
+    {blocks.length > 0 && availableMaterials.length > 1 && <details className="panel" style={{ marginBottom: 16 }}>
+      <summary>Trocar apostila de {topic.discipline}</summary>
+      <div className="quickActions" style={{ padding: "12px 0" }}>
+        {availableMaterials.map(m => <Link key={m.id} className="miniButton" href={`/conteudo/${encodeURIComponent(topic.id)}?material=${encodeURIComponent(m.id)}`}>
+          {m.title}{m.storagePath ? " · PDF disponível" : " · sem PDF"}
+        </Link>)}
+      </div>
+    </details>}
+
     {blocks.length > 0 ? <ContinuousReader
       topic={topic}
       blocks={blocks}
@@ -179,9 +204,21 @@ export default function ConteudoDetalhePage() {
       onFinishBlock={finishBlock}
       onFinishSection={finishSection}
     /> : <section className="panel">
-      <div className="panelHeader"><div><h2>Conteúdo de estudo</h2><p className="muted">Ainda não há microblocos importados para este tópico. O texto do edital não substitui a teoria da apostila.</p></div></div>
-      <div className="contentReading"><p>{node?.text || topic.originalText || "Nenhum texto disponível."}</p>{node?.sourceLabel && <div className="sourceBox">Fonte: {node.sourceLabel}{node.sourcePage ? ` · ${node.sourcePage}` : ""}</div>}</div>
-      <p className="smallNote muted">Para incluir ou corrigir microblocos, utilize Configurações → Modo Desenvolvedor.</p>
+      <div className="panelHeader"><div><h2>{questions.length > 0 ? "Questões cadastradas — teoria ainda não vinculada" : "Apostila ainda sem conteúdo importado"}</h2>
+        <p className="muted">Este tópico não possui microblocos de teoria vinculados. A leitura contínua só aparece quando o CSV de conteúdo é importado e associado ao Mapa-Mestre.</p></div>
+      </div>
+      {questions.length > 0 && <div className="quickActions" style={{ marginBottom: 20 }}>
+        <Link className="actionButton" href={`/questoes?topic=${encodeURIComponent(topic.id)}`}>Resolver {questions.length} questão(ões) cadastrada(s)</Link>
+      </div>}
+      <h3>Apostilas cadastradas de {topic.discipline}</h3>
+      {availableMaterials.length ? <div className="quickActions" style={{ marginTop: 12, flexWrap: "wrap" }}>
+        {availableMaterials.map(m => <Link key={m.id} className="actionButton secondaryAction" href={`/conteudo/${encodeURIComponent(topic.id)}?material=${encodeURIComponent(m.id)}`}>
+          {m.title}{m.storagePath ? " · PDF disponível" : " · sem PDF"}
+        </Link>)}
+      </div> : <p className="muted">Nenhuma apostila cadastrada nesta disciplina foi encontrada na biblioteca.</p>}
+      {requestedMaterialId && <p className="statusBox">O PDF desta apostila pode já estar armazenado, mas ainda não há seções de teoria importadas com este materialId: <code>{requestedMaterialId}</code>.</p>}
+      <p className="smallNote muted">Para carregar as sete seções da Aula 00, importe o CSV de teoria validado em Configurações → Modo Desenvolvedor → Conteúdos e importações. Enviar somente o PDF não cria as seções.</p>
+      {node?.sourceLabel && <small className="muted">Referência anterior: {node.sourceLabel}</small>}
     </section>}
 
     <section className="contentStats grid4 compactMetrics">
