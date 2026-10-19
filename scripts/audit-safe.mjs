@@ -63,3 +63,9 @@ assert(read("components/Sidebar.tsx").includes('secondaryLinks.map(renderLink)')
 assert(read("app/globals.css").includes('contextReader.withPdf') && read("app/globals.css").includes('sidebarMore'), "Estilos responsivos de navegação e PDF ausentes");
 assert(read("app/layout.tsx").includes('Concurseiro CLT'), "Título da aplicação incorreto");
 console.log("UI v1.5.3: 5 verificações adicionais passaram.");
+
+// Leitor v1.5.4: valida integração sem alterar dados persistidos.
+const readerSource = read('components/ContinuousReader.tsx');
+assert.ok(readerSource.includes('buildReadingSections'), 'Leitor contínuo sem agrupamento de seções.');
+assert.ok(readerSource.includes('onFinishSection'), 'Leitor contínuo sem conclusão de seção.');
+console.log('Leitor contínuo: estruturas verificadas.');
