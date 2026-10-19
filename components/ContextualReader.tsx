@@ -246,7 +246,7 @@ export default function ContextualReader({
       <nav className="contextBottomNav" aria-label="Navegação entre microblocos"><button type="button" disabled={activeIndex === 0} onClick={() => changeBlock(activeIndex - 1)}>← Bloco anterior</button><span>Bloco {activeIndex + 1} / {blocks.length}</span><button type="button" disabled={activeIndex === blocks.length - 1} onClick={() => changeBlock(activeIndex + 1)}>Próximo bloco →</button></nav>
     </section>
     {(mode === "pdf" || splitStudy) && <aside className="contextPdfPane" aria-label="PDF original ao lado da teoria">
-      <div className="contextPdfHeader"><div><strong>PDF da apostila</strong><small>{pageReference(block) || "Página não identificada"}</small></div><button type="button" className="miniButton" onClick={() => setMode("teoria")} aria-label="Fechar visualização de PDF">✕</button></div>
+      <div className="contextPdfHeader"><div><strong>PDF da apostila</strong><small>{pageReference(block) || "Página não identificada"}</small></div><button type="button" className="miniButton" onClick={() => { if (splitStudy) setSplitStudy(false); setMode("teoria"); }} aria-label="Fechar visualização de PDF">✕</button></div>
       {sourceUrl ? <>
         <iframe title={`PDF de referência — ${block.title}`} src={sourceUrl} className="contextPdfFrame" loading="lazy" referrerPolicy="no-referrer" />
         <div className="contextPdfFooter"><span>A página impressa pode diferir da página física. Confira a referência antes de validar.</span><a href={sourceUrl} target="_blank" rel="noopener noreferrer">Abrir em outra guia ↗</a></div>
