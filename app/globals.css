@@ -275,3 +275,26 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
  .contextTabs button{padding:13px 8px;font-size:11px}
  .metricsGrid .card{min-height:130px}
 }
+
+/* Modo focado: questões e PDF lado a lado, menu lateral oculto. */
+@media(min-width:1025px){
+ body.splitStudyActive .studyShell{grid-template-columns:minmax(0,1fr)}
+ body.splitStudyActive .studyShell>.sidebar{display:none}
+ body.splitStudyActive .studyShell>.content{width:100%;max-width:100%;padding:22px 25px 55px}
+ body.splitStudyActive .contextReader.splitStudyReader{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+ body.splitStudyActive .splitStudyReader>.contextOutline{display:none}
+ body.splitStudyActive .splitStudyReader>.contextPdfPane{grid-column:auto;position:sticky;height:calc(100vh - 48px);min-height:560px}
+ body.splitStudyActive .splitStudyReader>.contextReadingPane{min-width:0;max-height:calc(100vh - 48px);overflow:auto}
+}
+.splitStudyToolbar{display:flex;justify-content:flex-end;padding:9px 14px;background:#f8fbff;border-bottom:1px solid #e2ebf4}
+.splitStudyToolbar button{font-weight:750}
+@media(max-width:1024px){
+ .splitStudyReader>.contextOutline{display:none}
+ .contextReader.splitStudyReader{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+ .contextReader.splitStudyReader>.contextPdfPane{grid-column:auto;position:static;min-height:560px;height:75vh;margin:0}
+ .contextReader.splitStudyReader>.contextReadingPane{min-width:0}
+}
+@media(max-width:690px){
+ .contextReader.splitStudyReader{display:block}
+ .contextReader.splitStudyReader>.contextPdfPane{margin-top:12px;height:65vh}
+}
