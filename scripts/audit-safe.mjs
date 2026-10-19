@@ -70,4 +70,5 @@ console.log("UI v1.5.3: 5 verificações adicionais passaram.");
 const readerSource = read('components/ContinuousReader.tsx');
 assert.ok(readerSource.includes('buildReadingSections'), 'Leitor contínuo sem agrupamento de seções.');
 assert.ok(readerSource.includes('onFinishSection'), 'Leitor contínuo sem conclusão de seção.');
+assert.ok(read("app/conteudo/[id]/page.tsx").includes("getContentBlocksByTopicIds(childIds)"), "O tema principal deve carregar a teoria dos subtópicos.");
 console.log('Leitor contínuo: estruturas verificadas.');
