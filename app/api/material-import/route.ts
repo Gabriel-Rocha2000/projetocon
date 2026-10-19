@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     catch { return NextResponse.json({ error: "URL de material inválida." }, { status: 400 }); }
     const allowed = url.protocol === "https:" &&
       url.hostname === "firebasestorage.googleapis.com" &&
-      /^\\/v0\\/b\\/[^/]+\\/o\\//.test(url.pathname) &&
+      url.pathname.startsWith("/v0/b/") && url.pathname.includes("/o/") &&
       decodeURIComponent(url.pathname).includes("/users/") &&
       decodeURIComponent(url.pathname).includes("/materials/");
     if (!allowed) return NextResponse.json({ error: "O PDF deve estar no Firebase Storage do projeto." }, { status: 400 });
