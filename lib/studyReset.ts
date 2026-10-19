@@ -46,6 +46,7 @@ export type StudyResetSnapshot = {
   global: Record<GlobalName, ResetEntry[]>;
   currentUser: Record<UserName, ResetEntry[]>;
   preservedPdfMaterials: ResetEntry[];
+  retainedContests: ResetEntry[];
 };
 export type ResetProgress = { phase: string; current: number; total: number; detail: string };
 const preservePdf = (data: Record<string, unknown>) =>
@@ -69,6 +70,7 @@ export async function prepareStudyReset(
   const global = {} as Record<GlobalName, ResetEntry[]>;
   const currentUser = {} as Record<UserName, ResetEntry[]>;
   let preservedPdfMaterials: ResetEntry[] = [];
+  let retainedContests: ResetEntry[] = [];
   const total = RESET_GLOBAL_COLLECTIONS.length + RESET_USER_COLLECTIONS.length;
   let current = 0;
 
@@ -91,6 +93,10 @@ export async function prepareStudyReset(
     currentUser[name] = rows.docs.map(row => asEntry(row.id, row.data()));
     current += 1;
   }
+  onProgress?.({ phase: "inventario", current: total, total, detail: "Conferindo cadastros de concursos mantidos." });
+  // Permite restaurar a referência original se necessário. Os concursos continuam existentes.
+  const contests = await getDocs(collection(db, "contests"));
+  retainedContests = contests.docs.map(row => asEntry(row.id, row.data()));
   onProgress?.({ phase: "inventario", current: total, total, detail: "Inventário completo." });
   return {
     schemaVersion: 1,
@@ -100,6 +106,7 @@ export async function prepareStudyReset(
     global,
     currentUser,
     preservedPdfMaterials,
+    retainedContests,
   };
 }
 
@@ -142,6 +149,15 @@ export async function executeStudyReset(
     }
     for (const name of RESET_GLOBAL_COLLECTIONS) {
       await deleteRows([name], snapshot.global[name]);
+    }
+
+    // Ao remover versões do edital, o concurso permanece cadastrado,
+    // mas a referência da versão ativa não pode apontar para documento excluído.
+    for (const contest of snapshot.retainedContests) {
+      if (!contest.data.currentVersionId) continue;
+      const batch = writeBatch(db);
+      batch.set(doc(db, "contests", contest.id), { currentVersionId: null }, { merge: true });
+      await batch.commit();
     }
 
     // Não basta terminar os batches: uma nova consulta confirma a base vazia.
