@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import ContextualReader from "@/components/ContextualReader";
+import ContinuousReader from "@/components/ContinuousReader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useContest } from "@/contexts/ContestContext";
 import {
@@ -12,7 +12,10 @@ import {
   answerQuestion,
   getContentBlockProgress,
   getContentBlocks,
+  getContentBlocksByMaterial,
+  getContentBlocksByTopicIds,
   getContentNode,
+  getMaterials,
   getErrors,
   getLawItems,
   getQuestions,
@@ -20,15 +23,17 @@ import {
   getTopics,
   saveContentBlockProgress,
 } from "@/services/firestore";
-import { AnswerConfidence, ContentBlock, ContentNode, Difficulty, LawItem, Question, Topic } from "@/types";
+import { AnswerConfidence, ContentBlock, ContentNode, Difficulty, LawItem, Material, Question, Topic } from "@/types";
 
 export default function ConteudoDetalhePage() {
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const requestedMaterialId = searchParams.get("material") || "";
   const { user } = useAuth();
   const { activeContestId } = useContest();
   const [topic, setTopic] = useState<Topic | null>(null);
   const [allTopics, setAllTopics] = useState<Topic[]>([]);
+  const [availableMaterials, setAvailableMaterials] = useState<Material[]>([]);
   const [node, setNode] = useState<ContentNode | null>(null);
   const [blocks, setBlocks] = useState<ContentBlock[]>([]);
   const [blockProgress, setBlockProgress] = useState<any[]>([]);
@@ -55,20 +60,78 @@ export default function ConteudoDetalhePage() {
           return;
         }
         const contentId = t.canonicalContentId || t.id;
-        const [content, blockRows, qs, lawRows, errorRows, progress, topicRows] = await Promise.all([
+        const [content, blockRows, qs, lawRows, errorRows, progress, topicRows, materialRows] = await Promise.all([
           getContentNode(t), getContentBlocks(contentId), getQuestions(activeContestId),
           getLawItems(activeContestId),
           user ? getErrors(user.uid, activeContestId) : Promise.resolve([]),
           user ? getContentBlockProgress(user.uid, activeContestId) : Promise.resolve([]),
           getTopics(activeContestId),
+          getMaterials(), // biblioteca de fontes pode ser compartilhada entre concursos
         ]);
         if (!active) return;
+        const candidateMaterials = materialRows.filter(m => m.discipline === t.discipline);
+        setAvailableMaterials(candidateMaterials);
+        const requestedMaterial = requestedMaterialId ? candidateMaterials.find(m => m.id === requestedMaterialId) : null;
+        if (requestedMaterialId && !requestedMaterial) {
+          setLoadError("A apostila selecionada não foi encontrada nesta disciplina. Volte aos conteúdos e escolha outra fonte.");
+          setLoading(false);
+          return;
+        }
         const ownBlocks = blockRows.filter(block => block.topicId === t.id);
         const selectedBlocks = ownBlocks.length ? ownBlocks : blockRows.filter(block => block.contentId === contentId);
+
+        // O tópico principal é o índice do assunto. A teoria pode estar inteiramente
+        // vinculada aos subtópicos: reuni-los antes de decidir que o assunto está vazio.
+        const descendantIds = new Set<string>([t.id]);
+        let addedChild = true;
+        while (addedChild) {
+          addedChild = false;
+          for (const item of topicRows) {
+            if (item.parentTopicId && item.discipline === t.discipline &&
+                descendantIds.has(item.parentTopicId) && !descendantIds.has(item.id)) {
+              descendantIds.add(item.id);
+              addedChild = true;
+            }
+          }
+        }
+        const childIds = [...descendantIds].filter(topicId => topicId !== t.id);
+        const descendants = childIds.length ? await getContentBlocksByTopicIds(childIds) : [];
+        if (!active) return;
+        const candidates = new Map<string, ContentBlock>();
+        for (const block of [...selectedBlocks, ...descendants]) {
+          if (block.archived !== true && block.discipline === t.discipline) candidates.set(block.id, block);
+        }
+        const relatedBlocks = [...candidates.values()];
+
+        // A apostila é a unidade de leitura; cada conceito conserva o ID para revisões.
+        const preferredMaterialId = requestedMaterial?.id
+          || relatedBlocks.find(b => b.materialId && b.tags?.includes("importado_csv_validado"))?.materialId
+          || relatedBlocks.find(b => b.materialId)?.materialId;
+        let readingBlocks = preferredMaterialId
+          ? relatedBlocks.filter(b => b.materialId === preferredMaterialId)
+          : relatedBlocks;
+        if (preferredMaterialId) {
+          try {
+            const materialBlocks = await getContentBlocksByMaterial(preferredMaterialId);
+            if (!active) return;
+            const eligible = materialBlocks.filter(b => b.archived !== true && b.discipline === t.discipline);
+            if (requestedMaterial || eligible.length > readingBlocks.length) readingBlocks = eligible;
+          } catch (error) {
+            if (requestedMaterial) throw error; // Pedido explícito de apostila não pode falhar silenciosamente.
+            /* Mantém os blocos do tópico se a consulta automática por material falhar. */
+          }
+        }
+        const topicIds = new Set(readingBlocks.map(b => b.topicId).filter((x): x is string => !!x));
+        topicIds.add(t.id);
+        const blockIds = new Set(readingBlocks.map(b => b.id));
         setTopic(t);
         setNode(content);
-        setBlocks([...selectedBlocks].sort((a, b) => a.order - b.order));
-        setQuestions(qs.filter(q => q.topicId === t.id || q.subtopicId === t.id));
+        setBlocks([...readingBlocks].sort((a,b) =>
+          (a.sourcePageStart ?? 99999)-(b.sourcePageStart ?? 99999) || a.order-b.order));
+        setQuestions(qs.filter(q => topicIds.has(q.topicId)
+          || (q.subtopicId != null && topicIds.has(q.subtopicId))
+          || (q.contentBlockId != null && blockIds.has(q.contentBlockId))
+          || q.contentBlockIds?.some(blockId => blockIds.has(blockId))));
         setLaws(lawRows.filter(l => l.topicId === t.id || l.subtopicId === t.id));
         setErrors(errorRows.filter((e: any) => e.topicId === t.id || e.subtopicId === t.id));
         setBlockProgress(progress);
@@ -82,7 +145,7 @@ export default function ConteudoDetalhePage() {
     }
     load();
     return () => { active = false; };
-  }, [id, activeContestId, user?.uid]);
+  }, [id, activeContestId, user?.uid, requestedMaterialId]);
 
   const doneBlocks = useMemo(() => new Set(blockProgress.filter(p => p.completed).map(p => p.contentBlockId)), [blockProgress]);
   const activeErrors = useMemo(() => errors.filter((e: any) => e.status !== "consolidado"), [errors]);
@@ -113,6 +176,15 @@ export default function ConteudoDetalhePage() {
     setBlockProgress(await getContentBlockProgress(user.uid, activeContestId));
   }
 
+  async function finishSection(pending: ContentBlock[], difficulty: Difficulty) {
+    if (!user) throw new Error("Faça login para registrar a leitura.");
+    try {
+      for (const block of pending) await saveContentBlockProgress(user.uid, activeContestId, block, difficulty);
+    } finally {
+      setBlockProgress(await getContentBlockProgress(user.uid, activeContestId));
+    }
+  }
+
   if (loading) return <AppShell><div className="panel">Carregando leitor e vínculos de questões…</div></AppShell>;
   if (loadError || !topic) return <AppShell><section className="panel"><h2>Não foi possível abrir o conteúdo</h2><p>{loadError || "Tópico não encontrado."}</p><Link className="actionButton secondaryAction" href="/conteudo">Voltar para conteúdos</Link></section></AppShell>;
 
@@ -126,7 +198,7 @@ export default function ConteudoDetalhePage() {
       </div>
     </nav>
     <header className="pageHeader contentDetailHeader">
-      <div><span className="badge">{topic.discipline}</span><h1>{topic.title}</h1><p className="muted">Leitura focada e questões com vínculos identificados · {topic.canonicalContentId || topic.id}</p></div>
+      <div><span className="badge">{topic.discipline}</span><h1>{topic.title}</h1><p className="muted">Leitura contínua por seções e questões vinculadas · {topic.canonicalContentId || topic.id}</p></div>
       <div className="quickActions">
         <Link className="actionButton secondaryAction" href={`/questoes?topic=${encodeURIComponent(topic.id)}`}>Caderno geral ({questions.length})</Link>
         <Link className="actionButton secondaryAction" href={`/registrar-estudo?topic=${encodeURIComponent(topic.id)}`}>Registrar estudo</Link>
@@ -136,7 +208,16 @@ export default function ConteudoDetalhePage() {
 
     {message && <p className="statusBox" role="status">{message}</p>}
 
-    {blocks.length > 0 ? <ContextualReader
+    {blocks.length > 0 && availableMaterials.length > 1 && <details className="panel" style={{ marginBottom: 16 }}>
+      <summary>Trocar apostila de {topic.discipline}</summary>
+      <div className="quickActions" style={{ padding: "12px 0" }}>
+        {availableMaterials.map(m => <Link key={m.id} className="miniButton" href={`/conteudo/${encodeURIComponent(topic.id)}?material=${encodeURIComponent(m.id)}`}>
+          {m.title}{m.storagePath ? " · PDF disponível" : " · sem PDF"}
+        </Link>)}
+      </div>
+    </details>}
+
+    {blocks.length > 0 ? <ContinuousReader
       topic={topic}
       blocks={blocks}
       questions={questions}
@@ -146,10 +227,23 @@ export default function ConteudoDetalhePage() {
       initialBlockId={searchParams.get("block")}
       onAnswer={answerInline}
       onFinishBlock={finishBlock}
+      onFinishSection={finishSection}
     /> : <section className="panel">
-      <div className="panelHeader"><div><h2>Conteúdo de estudo</h2><p className="muted">Ainda não há microblocos importados para este tópico. O texto do edital não substitui a teoria da apostila.</p></div></div>
-      <div className="contentReading"><p>{node?.text || topic.originalText || "Nenhum texto disponível."}</p>{node?.sourceLabel && <div className="sourceBox">Fonte: {node.sourceLabel}{node.sourcePage ? ` · ${node.sourcePage}` : ""}</div>}</div>
-      <p className="smallNote muted">Para incluir ou corrigir microblocos, utilize Configurações → Modo Desenvolvedor.</p>
+      <div className="panelHeader"><div><h2>{questions.length > 0 ? "Questões cadastradas — teoria ainda não vinculada" : "Apostila ainda sem conteúdo importado"}</h2>
+        <p className="muted">Este tópico não possui microblocos de teoria vinculados. A leitura contínua só aparece quando o CSV de conteúdo é importado e associado ao Mapa-Mestre.</p></div>
+      </div>
+      {questions.length > 0 && <div className="quickActions" style={{ marginBottom: 20 }}>
+        <Link className="actionButton" href={`/questoes?topic=${encodeURIComponent(topic.id)}`}>Resolver {questions.length} questão(ões) cadastrada(s)</Link>
+      </div>}
+      <h3>Apostilas cadastradas de {topic.discipline}</h3>
+      {availableMaterials.length ? <div className="quickActions" style={{ marginTop: 12, flexWrap: "wrap" }}>
+        {availableMaterials.map(m => <Link key={m.id} className="actionButton secondaryAction" href={`/conteudo/${encodeURIComponent(topic.id)}?material=${encodeURIComponent(m.id)}`}>
+          {m.title}{m.storagePath ? " · PDF disponível" : " · sem PDF"}
+        </Link>)}
+      </div> : <p className="muted">Nenhuma apostila cadastrada nesta disciplina foi encontrada na biblioteca.</p>}
+      {requestedMaterialId && <p className="statusBox">O PDF desta apostila pode já estar armazenado, mas ainda não há seções de teoria importadas com este materialId: <code>{requestedMaterialId}</code>.</p>}
+      <p className="smallNote muted">Para carregar as sete seções da Aula 00, importe o CSV de teoria validado em Configurações → Modo Desenvolvedor → Conteúdos e importações. Enviar somente o PDF não cria as seções.</p>
+      {node?.sourceLabel && <small className="muted">Referência anterior: {node.sourceLabel}</small>}
     </section>}
 
     <section className="contentStats grid4 compactMetrics">

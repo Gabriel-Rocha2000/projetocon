@@ -310,12 +310,19 @@ export default function ConteudoPage() {
               sourcePageStart: optionalNumber(row.pagina_inicial || row.source_page_start),
               sourcePageEnd: optionalNumber(row.pagina_final || row.source_page_end),
               estimatedMinutes: optionalNumber(row.tempo_estimado || row.estimated_minutes),
+              ...(("secao_id" in row || "section_id" in row) ? { sectionId: String(row.secao_id || row.section_id || "").trim() || null } : {}),
+              ...(("secao_titulo" in row || "section_title" in row) ? { sectionTitle: String(row.secao_titulo || row.section_title || "").trim() || null } : {}),
+              ...(("secao_ordem" in row || "section_order" in row) ? { sectionOrder: optionalNumber(row.secao_ordem || row.section_order) } : {}),
               tags: Array.from(new Set([...tags, ...(externalContentId && externalContentId !== contentId ? [`referencia_csv:${externalContentId}`] : []), "importado_csv_validado"])) ,
             });
           });
 
           if (!blocks.length) {
             setMessage(`Nenhum bloco pôde ser importado. ${skipped.slice(0, 4).join(" | ")}`);
+            return;
+          }
+          if (skipped.length) {
+            setMessage(`Importação cancelada: ${skipped.length} linha(s) sem vínculo ou texto. Corrija o CSV antes de tentar novamente; nenhum registro foi gravado. Exemplos: ${skipped.slice(0, 4).join(" | ")}`);
             return;
           }
           const duplicateIds = blocks.map(block => block.id).filter((id, index, ids) => ids.indexOf(id) !== index);
@@ -335,7 +342,10 @@ export default function ConteudoPage() {
             }
           }
           // Atualiza registros pelo mesmo ID, sem apagar os blocos ausentes deste CSV.
-          for (const material of materialMap.values()) await saveMaterial(material);
+          for (const material of materialMap.values()) {
+            const previous = materials.find(m => m.id === material.id);
+            await saveMaterial(previous?.storagePath ? { ...material, type: "pdf", storagePath: previous.storagePath, fileHash: previous.fileHash ?? null, fileName: previous.fileName ?? material.fileName, pageCount: previous.pageCount ?? null } : material);
+          }
           await saveContentBlocks(blocks);
           const parserNote = parserErrors.length ? ` O parser também sinalizou ${parserErrors.length} aviso(s).` : "";
           const skippedNote = skipped.length ? ` ${skipped.length} linha(s) ficaram de fora: ${skipped.slice(0, 3).join(" | ")}${skipped.length > 3 ? "…" : ""}` : "";

@@ -113,6 +113,9 @@ export interface ContentBlock {
   sourcePageStart?: number | null;
   sourcePageEnd?: number | null;
   estimatedMinutes?: number | null;
+  sectionId?: string | null;
+  sectionTitle?: string | null;
+  sectionOrder?: number | null;
   tags?: string[];
   archived?: boolean;
 }

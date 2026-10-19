@@ -2,7 +2,7 @@ name: Verificar codigo Projeto Fazenda
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [Teste, leitor-continuo-v154]
 jobs:
   typescript:
     runs-on: ubuntu-latest

@@ -21,7 +21,8 @@ assert(deleteDiscipline.includes("limit(1)"), "Exclusão não deve baixar coleç
 assert(content.includes("Padronizar nome") && content.includes("Retirar do concurso"), "Gerenciamento das disciplinas ausente");
 assert(questions.includes("activeDisciplineSet.has(q.discipline)"), "Disciplinas retiradas devem ser ocultas do caderno de questões");
 assert(contest.includes("error: string | null"), "Falha de leitura deve ser explicitada");
-assert.equal(packageJson.version, "1.5.3");
+assert.match(packageJson.version, /^\d+\.\d+\.\d+$/, "Versão do package.json inválida");
+assert.equal(packageJson.version, read("VERSION").trim(), "VERSION deve corresponder ao package.json");
 assert(!content.includes("await deleteContentBlocksByMaterial(material.id)"), "Importação de CSV não deve apagar microblocos automaticamente");
 assert(read("app/dashboard/page.tsx").includes("dashboardError"), "Dashboard deve exibir falhas de carregamento");
 
@@ -44,7 +45,8 @@ assert(contextual.includes('não têm vínculo direto comprovado'), "Questões r
 assert(contextual.includes('Voltar à teoria') && contextual.includes('Comentário / fundamento'), "Leitura e correção contextual ausentes");
 assert(contextual.includes('sessionStorage.setItem(storageKey'), "Posição de leitura deve ser mantida");
 assert(detail.includes('addError('), "Erros precisam alimentar o caderno");
-assert(read("app/questoes/[id]/page.tsx").includes('Retornar ao microbloco de leitura'), "Retorno ao microbloco ausente");
+const questionDetail = read("app/questoes/[id]/page.tsx");
+assert(questionDetail.includes('const contentHref =') && questionDetail.includes('?block=') && questionDetail.includes('href={contentHref}'), "Retorno ao microbloco precisa conservar o ID e linkar para o leitor");
 console.log("Leitor contextual: 6 verificações adicionais passaram.");
 
 // Separação de interface na v1.5.2: não executar operações administrativas no Modo Estudos.
@@ -63,3 +65,29 @@ assert(read("components/Sidebar.tsx").includes('secondaryLinks.map(renderLink)')
 assert(read("app/globals.css").includes('contextReader.withPdf') && read("app/globals.css").includes('sidebarMore'), "Estilos responsivos de navegação e PDF ausentes");
 assert(read("app/layout.tsx").includes('Concurseiro CLT'), "Título da aplicação incorreto");
 console.log("UI v1.5.3: 5 verificações adicionais passaram.");
+
+// Leitor v1.5.4: valida integração sem alterar dados persistidos.
+const readerSource = read('components/ContinuousReader.tsx');
+assert.ok(readerSource.includes('buildReadingSections'), 'Leitor contínuo sem agrupamento de seções.');
+assert.ok(readerSource.includes('onFinishSection'), 'Leitor contínuo sem conclusão de seção.');
+assert.ok(read("app/conteudo/[id]/page.tsx").includes("getContentBlocksByTopicIds(childIds)"), "O tema principal deve carregar a teoria dos subtópicos.");
+assert.ok(read("app/globals.css").includes(".continuousReader.withPdf") && read("app/globals.css").includes(".continuousReader>.continuousPdf"), "O painel lateral do PDF exige o grid real do ContinuousReader.");
+assert.ok(readerSource.includes('className={"continuousReader"'), "Componente deve usar a classe do layout contínuo.");
+
+assert.ok(readerSource.includes('const [pdfOpen, setPdfOpen]') && readerSource.includes('className={"continuousReader" + (pdfOpen'), "PDF deve abrir independentemente da aba de teoria ou questões.");
+assert.ok(readerSource.includes('aria-label="Aumentar zoom do PDF"') && readerSource.includes('aria-label="Diminuir zoom do PDF"'), "Faltam os botões de zoom do PDF.");
+assert.ok(readerSource.includes('params.set("zoom"') && readerSource.includes('src={pdfDisplayUrl}'), "O zoom deve ser aplicado ao visualizador PDF.");
+assert.ok(readerSource.includes('className="continuousQuestionActions"') && readerSource.includes('onClick={togglePdf}'), "Questões devem permitir mostrar/ocultar PDF.");
+assert.ok(read("app/globals.css").includes('.continuousPdfControls') && read("app/globals.css").includes('.continuousQuestionActions'), "Faltam estilos dos controles de PDF.");
+console.log('Leitor contínuo: estruturas verificadas.');
+
+const resetSource = read("lib/studyReset.ts");
+const resetPage = read("app/desenvolvedor/reiniciar-base/page.tsx");
+assert(resetSource.includes('RESET_GLOBAL_COLLECTIONS') && resetSource.includes('RESET_USER_COLLECTIONS'), "Reset exige escopo declarado de coleções.");
+assert(resetSource.includes('prepareStudyReset(') && resetSource.includes('makeStudyResetBackup('), "Reset exige inventário e backup.");
+assert(resetSource.includes('getCountFromServer') && resetSource.includes('executeStudyReset('), "Reset precisa conferir contagens após deletar.");
+assert(!resetSource.includes('deleteObject('), "Reset não pode excluir PDFs no Storage.");
+assert(resetSource.includes('preservedPdfMaterials'), "Reset deve preservar os materiais PDF com Storage.");
+assert(resetPage.includes('CONFIRMATION = "ZERAR BASE COMPLETA"') && resetPage.includes('savedConfirmed'), "Reset exige dupla confirmação e backup.");
+assert(read("app/desenvolvedor/page.tsx").includes('"/desenvolvedor/reiniciar-base"'), "Reset deve estar acessível no Modo Desenvolvedor.");
+console.log("Reinicialização segura: dependências estáticas conferidas.");

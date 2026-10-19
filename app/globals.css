@@ -275,3 +275,310 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
  .contextTabs button{padding:13px 8px;font-size:11px}
  .metricsGrid .card{min-height:130px}
 }
+
+/* Leitor continuo v1.5.4 — mantém a navegação antiga como fallback */
+.continuousLayout{display:grid;grid-template-columns:minmax(195px,255px) minmax(0,1fr);gap:14px;align-items:start}.continuousLayout.withPdf{grid-template-columns:minmax(180px,230px) minmax(0,1fr) minmax(250px,38%)}.continuousIndex,.continuousMain,.continuousPdf{background:#fff;border:1px solid #dce5f4;border-radius:16px;overflow:hidden;min-width:0}.continuousIndex{position:sticky;top:16px;padding:16px;max-height:calc(100vh - 32px);overflow-y:auto}.continuousIndex h3{font-size:14px;margin:0 0 12px}.continuousIndex button{display:block;text-align:left;width:100%;border:0;background:transparent;border-radius:8px;padding:9px;color:#172951;cursor:pointer}.continuousIndex button.active{background:#eaf4ff;font-weight:700}.continuousIndex small{display:block;color:#64748b}.continuousMain{padding:20px}.continuousHeading{display:flex;justify-content:space-between;gap:12px}.continuousHeading h2{font-size:24px;margin:4px 0}.continuousHeading p{color:#667085}.continuousTheory{padding-top:16px;min-height:200px}.continuousConcept{padding:22px 0;border-bottom:1px solid #e4eaf3;scroll-margin-top:18px}.continuousConceptHead{display:flex;gap:12px;align-items:center}.continuousConceptHead h3{margin:0;font-size:19px;color:#172951}.continuousConceptHead small{color:#67748c}.continuousConceptNumber{border-radius:9px;background:#e7ecfe;padding:8px 12px;color:#273884;font-weight:700}.continuousConceptText{white-space:pre-wrap;line-height:1.75;color:#293852;margin:16px 0}.continuousConceptActions{display:flex;flex-wrap:wrap;gap:8px}.continuousConceptActions button,.continuousFinish button,.continuousIndex button,.continuousIntro button{font:inherit}.continuousConceptActions button,.continuousFinish button,.continuousIntro button{border:1px solid #d9e3f2;border-radius:9px;background:#f8fbff;color:#1a3458;padding:9px 11px;cursor:pointer}.continuousDone{color:#168664;font-size:12px}.continuousFinish{margin-top:22px;padding:16px;border:1px solid #d4e8df;border-radius:12px;background:#f6fcf9}.continuousFinish button{margin:5px}.continuousPdf{position:sticky;top:16px;height:calc(100vh - 32px);display:flex;flex-direction:column}.continuousPdf iframe{width:100%;flex:1;border:0;min-height:250px}.continuousPdf .contextPdfEmpty{padding:18px}.continuousTheory .contextQuestionCard{margin-top:16px}.continuousScopes{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.continuousScopes button{border:1px solid #dbe4f0;border-radius:8px;background:#fff;padding:10px;cursor:pointer}.continuousScopes button.active{border-color:#168b6d;background:#e9f8f2}.continuousIntro{display:flex;justify-content:space-between;gap:16px;align-items:center;color:#64748b}.continuousPdf .contextPdfHeader{padding:14px;border-bottom:1px solid #dce5f4}.continuousPdf .contextPdfFooter{padding:10px;border-top:1px solid #dce5f4;font-size:12px}.continuousMain .contextBottomNav{margin-top:18px}@media(max-width:1180px){.continuousLayout.withPdf{grid-template-columns:minmax(170px,220px) minmax(0,1fr)}.continuousPdf{position:static;grid-column:1/-1;height:75vh}}@media(max-width:700px){.continuousLayout,.continuousLayout.withPdf{display:flex;flex-direction:column}.continuousIndex{position:static;max-height:270px;width:100%}.continuousMain{width:100%;padding:14px}.continuousPdf{width:100%;height:65vh}.continuousIntro{display:block}}
+
+
+/* v1.5.4 hotfix: seletores reais do componente ContinuousReader.
+   O CSS inicial usava continuousLayout/continuousIndex, mas o JSX renderiza
+   continuousReader/continuousOutline. Sem este grid, o PDF ficava no fim
+   de uma seção comprida, parecendo que o botão não funcionava. */
+.continuousReader{
+  display:grid;
+  grid-template-columns:minmax(185px,240px) minmax(0,1fr);
+  align-items:start;
+  gap:16px;
+  margin:20px 0 28px;
+  scroll-margin-top:20px;
+}
+.continuousReader.withPdf{
+  grid-template-columns:minmax(172px,208px) minmax(0,1fr) minmax(300px,36%);
+  gap:12px;
+}
+.continuousReader > *{min-width:0;}
+.continuousOutline{
+  position:sticky;
+  top:16px;
+  max-height:calc(100dvh - 32px);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  border:1px solid #dce5f4;
+  border-radius:16px;
+  background:#fff;
+  box-shadow:0 8px 24px #10233f08;
+}
+.continuousOutlineHeader{
+  padding:16px;
+  border-bottom:1px solid #e5edf7;
+  display:flex;
+  justify-content:space-between;
+  align-items:start;
+  gap:12px;
+}
+.continuousOutlineHeader strong{color:#1b3155;font-size:14px;}
+.continuousOutlineHeader small{font-size:11px;color:#708099;text-align:right;}
+.continuousSections{
+  padding:8px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.continuousSectionGroup + .continuousSectionGroup{border-top:1px solid #e9eef5;}
+.continuousSectionButton{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  width:100%;
+  border:1px solid transparent;
+  padding:11px 8px;
+  border-radius:10px;
+  cursor:pointer;
+  background:transparent;
+  color:#34455e;
+  text-align:left;
+}
+.continuousSectionButton:hover{background:#f3f7fb;transform:none;}
+.continuousSectionButton.active{background:#eaf3ff;border-color:#cbdcf5;color:#143c75;}
+.continuousSectionButton>span{
+  display:grid;
+  place-items:center;
+  flex:0 0 26px;
+  width:26px;
+  height:26px;
+  border-radius:8px;
+  background:#e9eef8;
+  font-weight:800;
+  font-size:12px;
+}
+.continuousSectionButton.active>span{background:#2c428e;color:#fff;}
+.continuousSectionButton strong{flex:1;font-size:12px;line-height:1.4;}
+.continuousSectionButton small{font-size:10px;color:#6e7d96;white-space:nowrap;}
+.continuousConceptList{padding:3px 5px 9px 16px;display:grid;gap:3px;}
+.continuousConceptList button{
+  display:flex;
+  gap:8px;
+  align-items:flex-start;
+  width:100%;
+  border:0;
+  background:transparent;
+  padding:8px 6px;
+  border-radius:8px;
+  font-size:11px;
+  line-height:1.5;
+  color:#405a75;
+  text-align:left;
+  cursor:pointer;
+}
+.continuousConceptList button:hover{background:#f1f6fb;transform:none;}
+.continuousConceptList button.active{background:#e9f4f2;color:#126a61;font-weight:750;}
+.continuousConceptList button span{color:#23836c;}
+.continuousOutlineReturn{
+  display:block;
+  border-top:1px solid #e5edf7;
+  padding:13px 17px;
+  color:#36577d;
+  font-size:12px;
+  font-weight:700;
+}
+.continuousReader>.continuousMain{
+  padding:0;
+  border:1px solid #dce5f4;
+  border-radius:16px;
+  background:#fff;
+  overflow:hidden;
+  min-width:0;
+  box-shadow:0 8px 24px #10233f07;
+}
+.continuousReader .continuousHeading{
+  padding:20px 22px 15px;
+  background:#fbfdff;
+  border-bottom:1px solid #eef2f7;
+}
+.continuousReader .continuousHeading h2{font-size:clamp(18px,1.8vw,25px);line-height:1.35;}
+.continuousReader .continuousHeading p{font-size:12px;line-height:1.5;}
+.continuousReader>.continuousMain .continuousTheory{padding:19px 22px 24px;}
+.continuousReader .continuousIntro p{font-size:12px;line-height:1.5;}
+.continuousReader .continuousIntro button{
+  white-space:nowrap;
+  background:#f8fbff;
+  color:#234a78;
+  font-size:12px;
+  font-weight:700;
+}
+.continuousReader .continuousConcept{padding:22px 0;}
+.continuousReader .continuousConcept:first-of-type{padding-top:16px;}
+.continuousReader .continuousConceptHead{align-items:flex-start;}
+.continuousReader .continuousConceptHead h3{font-size:17px;line-height:1.35;}
+.continuousReader .continuousConceptHead small{font-size:11px;}
+.continuousReader .continuousConceptText{font-size:14px;line-height:1.85;overflow-wrap:anywhere;max-width:80ch;}
+.continuousReader .continuousConceptActions button{font-size:12px;}
+.continuousReader .continuousFinish{font-size:12px;}
+.continuousReader .continuousFinish p{margin:6px 0;color:#58716b;}
+.continuousReader .contextBottomNav{padding:16px 22px;border-top:1px solid #e8eef6;margin:0;}
+.continuousReader>.continuousPdf{
+  position:sticky;
+  top:16px;
+  align-self:start;
+  min-width:0;
+  height:calc(100dvh - 32px);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  background:#fff;
+  border:1px solid #dce5f4;
+  border-radius:16px;
+  box-shadow:0 8px 26px #10233f12;
+}
+.continuousReader>.continuousPdf .contextPdfFrame{
+  flex:1;
+  min-height:0;
+  width:100%;
+  display:block;
+}
+.continuousReader>.continuousPdf .contextPdfEmpty{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+}
+.continuousReader>.continuousPdf .contextPdfEmpty select{
+  max-width:100%;
+  padding:10px;
+  border:1px solid #d5e1ef;
+  border-radius:8px;
+  background:white;
+}
+.continuousReader>.continuousPdf .contextPdfEmpty .miniButton{margin-top:8px;}
+.continuousReader>.continuousPdf .contextPdfFooter{font-size:11px;}
+.continuousReader.withPdf .continuousIntro{align-items:center;}
+@media(max-width:1190px){
+  .continuousReader.withPdf{grid-template-columns:minmax(155px,200px) minmax(0,1fr);}
+  .continuousReader.withPdf>.continuousPdf{
+    position:fixed;
+    z-index:1300;
+    right:14px;
+    top:64px;
+    height:calc(100dvh - 80px);
+    width:min(520px,calc(100vw - 28px));
+    box-shadow:0 18px 60px #10233f40;
+  }
+}
+@media(max-width:720px){
+  .continuousReader,.continuousReader.withPdf{display:flex;flex-direction:column;}
+  .continuousReader>.continuousOutline{position:static;max-height:280px;width:100%;}
+  .continuousReader>.continuousMain{width:100%;}
+  .continuousReader>.continuousPdf{width:100%;}
+  .continuousReader .continuousHeading{padding:17px;}
+  .continuousReader>.continuousMain .continuousTheory{padding:15px;}
+  .continuousReader .continuousIntro{display:flex;flex-direction:column;align-items:stretch;}
+  .continuousReader .continuousIntro button{white-space:normal;}
+  .continuousReader .continuousConceptHead{flex-wrap:wrap;}
+  .continuousReader.withPdf>.continuousPdf{top:56px;height:calc(100dvh - 68px);}
+}
+
+
+/* v1.5.4: controles de zoom e PDF persistente durante a resolução de questões */
+.continuousReader .contextTabs{flex-wrap:wrap;row-gap:6px;}
+.continuousReader .contextTabs .continuousPdfToggle{
+  margin-left:auto;
+  border:1px solid #cfe0ef;
+  border-radius:9px 9px 0 0;
+  padding:10px 12px;
+  background:#f8fbff;
+  color:#244d80;
+  font-size:12px;
+  font-weight:750;
+}
+.continuousReader .contextTabs .continuousPdfToggle.selected{
+  background:#e8f7f1;
+  border-color:#72cbb1;
+  color:#176955;
+}
+.continuousReader .continuousPdfControls{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:4px;
+  flex-wrap:wrap;
+}
+.continuousReader .continuousPdfControls button{
+  display:grid;
+  place-items:center;
+  min-width:30px;
+  height:30px;
+  padding:0 6px;
+  border:1px solid #cfe0ef;
+  border-radius:8px;
+  background:#f5f9ff;
+  color:#244d80;
+  font-size:16px;
+  font-weight:750;
+  cursor:pointer;
+}
+.continuousReader .continuousPdfControls button:hover:not(:disabled){
+  background:#e5f0fc;
+  transform:none;
+}
+.continuousReader .continuousPdfControls button:disabled{
+  cursor:not-allowed;
+  opacity:.45;
+}
+.continuousReader .continuousPdfControls span{
+  min-width:42px;
+  text-align:center;
+  white-space:nowrap;
+  font-size:11px;
+  font-weight:750;
+  color:#324e69;
+  font-variant-numeric:tabular-nums;
+}
+.continuousReader .continuousPdfControls .continuousPdfClose{
+  margin-left:5px;
+  border-color:#dee5ed;
+  background:#fff;
+  color:#41546e;
+  font-size:12px;
+}
+.continuousReader.withPdf .contextPdfHeader{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.continuousReader.withPdf .contextPdfHeader>div:first-child{min-width:98px;flex:1;}
+.continuousReader.withPdf>.continuousMain{
+  min-width:0;
+}
+.continuousReader.withPdf .contextQuestionStatement{
+  overflow-wrap:anywhere;
+}
+@media(max-width:1100px){
+  .continuousReader .contextTabs .continuousPdfToggle{margin-left:0;}
+}
+
+
+.continuousReader .continuousModeTabs{display:flex;align-items:center;flex-wrap:wrap;gap:4px;}
+.continuousReader .continuousQuestionActions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+.continuousReader .continuousQuestionActions .miniButton{white-space:nowrap;}
+@media(max-width:760px){.continuousReader .continuousQuestionActions{justify-content:flex-start;}}
+
+
+/* Reinicializacao controlada de estudos — Modo Desenvolvedor */
+.resetBulletList{padding-left:22px;line-height:1.8;color:#394d65;}
+.resetInventoryDetails{margin:14px 0;padding:14px;border:1px solid #dfe7ef;border-radius:10px;}
+.resetInventoryDetails summary{cursor:pointer;font-weight:700;color:#2c4366;}
+.resetInventoryGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin:14px 0;}
+.resetInventoryGrid>div{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #e5ebf4;border-radius:8px;padding:10px;}
+.resetInventoryGrid code{font-size:12px;overflow-wrap:anywhere;}
+.resetInventoryGrid strong{font-variant-numeric:tabular-nums;}
+.resetCheck{display:flex;align-items:flex-start;gap:10px;margin:14px 0;font-size:13px;line-height:1.5;cursor:pointer;}
+.resetCheck input{width:18px;height:18px;flex:0 0 auto;accent-color:#237d68;}
+.resetDangerPanel{border-color:#ecc9c4;background:linear-gradient(180deg,#fff,#fffafa);}
+.resetDangerPanel h2{color:#922f28;}
+.resetConfirmationInput{display:block;max-width:480px;width:100%;padding:12px;border:1px solid #d6a5a1;border-radius:9px;margin:9px 0 14px;font-weight:700;}
+.resetRunButton{display:block;margin:12px 0;padding:12px 16px;}
+.resetRunButton:disabled{opacity:.43;cursor:not-allowed;}
+.resetProgress{display:grid;gap:7px;border:1px solid #e0e8ef;background:white;border-radius:10px;padding:12px 16px;margin-top:16px;}
+.resetProgress span{font-size:12px;color:#6b7f97;}
+.resetProgress progress{width:100%;height:11px;accent-color:#2a8f73;}
+.resetSuccess{margin:15px 0;background:#f0fbf5;border:1px solid #badfca;padding:18px;border-radius:12px;}
+.resetSuccess h3{margin-top:0;color:#156b4a;}
