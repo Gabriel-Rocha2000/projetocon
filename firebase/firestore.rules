@@ -3,23 +3,69 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function own(uid) { return signedIn() && request.auth.uid == uid; }
+    // Claim atribuída via Firebase Admin SDK (servidor confiável).
+    // Nunca confiar em campo "admin" editável no próprio perfil.
+    function admin() { return signedIn() && request.auth.token.admin == true; }
 
     match /users/{uid} {
-      allow read, write: if own(uid);
-      match /{document=**} { allow read, write: if own(uid); }
+      allow read, create, update, delete: if own(uid);
+      match /{document=**} {
+        allow read, write: if own(uid);
+      }
     }
 
-    // MVP privado. Antes de abrir para outros usuários,
-    // restrinja escrita global a administradores.
-    match /contests/{id} { allow read, write: if signedIn(); }
-    match /topics/{id} { allow read, write: if signedIn(); }
-    match /materials/{id} { allow read, write: if signedIn(); }
-    match /laws/{id} { allow read, write: if signedIn(); }
-    match /law_documents/{id} { allow read, write: if signedIn(); }
-    match /questions/{id} { allow read, write: if signedIn(); }
-    match /content_nodes/{id} { allow read, write: if signedIn(); }
-    match /contest_versions/{id} { allow read, write: if signedIn(); }
-    match /edital_items/{id} { allow read, write: if signedIn(); }
-    match /content_blocks/{id} { allow read, write: if signedIn(); }
+    // Biblioteca central: alunos autenticados consultam; somente admin altera.
+    match /contests/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if admin();
+    }
+
+    match /topics/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if admin();
+    }
+
+    match /materials/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if admin();
+    }
+
+    match /laws/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if admin();
+    }
+
+    match /law_documents/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if admin();
+    }
+
+    match /questions/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if admin();
+    }
+
+    match /content_nodes/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if admin();
+    }
+
+    match /contest_versions/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if admin();
+    }
+
+    match /edital_items/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if admin();
+    }
+
+    match /content_blocks/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if admin();
+    }
+
+    // Bloquear todo o restante por padrão.
+    match /{document=**} { allow read, write: if false; }
   }
 }
