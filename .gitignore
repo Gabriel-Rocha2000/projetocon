@@ -13,3 +13,8 @@ imports/
 *_CONTEUDO_VALIDADO*.csv
 *_ESTRUTURA_MAPA_MESTRE*.csv
 *_IMPORTACAO_EDITAL.csv
+
+# Nunca versionar chaves privadas do Firebase Admin
+service-account*.json
+*serviceAccountKey*.json
+firebase-admin-key*.json
