@@ -13,14 +13,14 @@ export default function Configuracoes() {
   useEffect(() => {
     let cancelled = false;
     setIsAdmin(false);
-    if (!user || !isAdmin) return;
+    if (!user) return;
     user.getIdTokenResult(true).then(token => {
       if (!cancelled) setIsAdmin(token.claims.admin === true);
     }).catch(() => { if (!cancelled) setIsAdmin(false); });
     return () => { cancelled = true; };
   }, [user]);
   function entrar() {
-    if (!user) return;
+    if (!user || !isAdmin) return;
     if (!window.confirm("Entrar no Modo Desenvolvedor? Alterações podem modificar os conteúdos de estudo. Dados existentes não serão excluídos ao entrar.")) return;
     enableDeveloperMode(user.uid);
     router.push("/desenvolvedor");
